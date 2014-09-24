@@ -585,13 +585,13 @@ void pushCube(std::vector<Primitive*> &list, double rotation) {
 	Point3D p7r = transform * (p7) + translate;
 
 
-/*
+
 	list.push_back(new Primitive(
 			new Sphere(p0r, 1), red_glass));
 
 	list.push_back(new Primitive(
 			new Sphere(p1r, 1), red_glass));
-*/
+/*
 	list.push_back(new Primitive(
 			new Triangle(p0r, p1r, p2r), red_glass));
 	list.push_back(new Primitive(
@@ -606,7 +606,7 @@ void pushCube(std::vector<Primitive*> &list, double rotation) {
 			new Triangle(p2r, p6r, p3r), red_glass));
 	list.push_back(new Primitive(
 			new Triangle(p6r, p7r, p3r), red_glass));
-*/
+
 	list.push_back(new Primitive(
 			new Triangle(p0r, p4r, p6r), red_glass));
 	list.push_back(new Primitive(
@@ -621,7 +621,7 @@ void pushCube(std::vector<Primitive*> &list, double rotation) {
 			new Triangle(p0r, p1r, p4r), red_glass));
 	list.push_back(new Primitive(
 			new Triangle(p4r, p1r, p5r), red_glass));
-
+*/
 }
 
 double stringToDouble(std::string s) {

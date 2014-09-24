@@ -292,7 +292,7 @@ int step_compute_dynamic_scene::execute
 
 	std::vector<Primitive*> dynamic_scene;
 //	pushCube(dynamic_scene, (0.1*current_frame));
-	pushBunny(dynamic_scene, (0.1*current_frame+0.1));
+//	pushBunny(dynamic_scene, (0.1*current_frame+0.1));
 
 	// Produce
 
