@@ -291,7 +291,8 @@ int step_compute_dynamic_scene::execute
 	// Execute
 
 	std::vector<Primitive*> dynamic_scene;
-//	pushCube(dynamic_scene, (0.1*current_frame));
+
+	pushCube(dynamic_scene, (0.1*current_frame));
 //	pushBunny(dynamic_scene, (0.1*current_frame+0.1));
 
 	// Produce
@@ -310,7 +311,7 @@ int main( int argc, char* argv[] )
  //   CnC::debug::trace(cnc_ray_tracer.frame_fragment);
  //   CnC::debug::trace(cnc_ray_tracer.execution_time);
 
-    cnc_ray_tracer.number_frames = 100;
+    cnc_ray_tracer.number_frames = 10;
     cnc_ray_tracer.number_fragments = 8;
 
     cnc_ray_tracer.image_height = 1080;
