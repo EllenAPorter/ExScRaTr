@@ -1,11 +1,11 @@
 Model extents: <-1.893798, -0.340252, -1.237472>, <1.220182, 2.74642, 1.175994>
 Triangle count: 69630
-Voxel: 0	Triangle count: 69630
-Voxel: 1	Triangle count: 6
-Voxel: 2	Triangle count: 6
-Voxel: 3	Triangle count: 0
-Voxel: 4	Triangle count: 5
-Voxel: 5	Triangle count: 0
-Voxel: 6	Triangle count: 0
-Voxel: 7	Triangle count: 0
-Duplicates: 17
+Voxel: 0	Triangle count: 8341
+Voxel: 1	Triangle count: 8623
+Voxel: 2	Triangle count: 9934
+Voxel: 3	Triangle count: 2491
+Voxel: 4	Triangle count: 14022
+Voxel: 5	Triangle count: 13599
+Voxel: 6	Triangle count: 10825
+Voxel: 7	Triangle count: 3871
+Duplicates: 2076
