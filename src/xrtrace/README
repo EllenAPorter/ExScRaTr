@@ -1,0 +1,9 @@
+1.  Install CnC:
+
+    https://github.com/habanero-rice/cnc-framework.git
+
+2.  source setup_env.sh
+
+3.  ucnc_t xrtrace.cnc
+
+4.  make run
