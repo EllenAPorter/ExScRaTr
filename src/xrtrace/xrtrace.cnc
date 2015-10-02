@@ -9,18 +9,18 @@
 /******************************************************************************
 // * Graph parameters */
 $context {
-	
-	// decomposed domain size
-	int voxels_i;
-	int voxels_j;
-	int voxels_k;
-	
-	// frames to trace
-	int num_frames;
-	
-	// how many times do we expect to communicate rays
-	int boundary_exchanges;
-	
+
+  // decomposed domain size
+  int voxels_i;
+  int voxels_j;
+  int voxels_k;
+
+  // frames to trace
+  int num_frames;
+
+  // how many times do we expect to communicate rays
+  int boundary_exchanges;
+
 };
 
 /******************************************************************************
@@ -39,16 +39,16 @@ $context {
 -> [ scene : frame, $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k) ];
 
 ( camera : frame )
--> [ rays : frame, 0, 2, $range(0, #voxels_i), 0, $range(0, #voxels_k) ];
+-> [ rays : frame, 0, $range(0, 6), $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k) ];
 
 ( trace_voxel : frame, instance, i, j, k )
 <- [ scene: frame, i, j, k],
-   [ rays : frame, instance  , 0, i  , j  , k   ] $when(instance > 0 && i<#voxels_i-1),
-   [ rays : frame, instance  , 1, i  , j  , k   ] $when(instance > 0 && i>0),
-   [ rays : frame, instance  , 2, i  , j  , k   ] $when(instance == 0 && j == 0 || j<#voxels_j-1),
-   [ rays : frame, instance  , 3, i  , j  , k   ] $when(instance > 0 && j>0),
-   [ rays : frame, instance  , 4, i  , j  , k   ] $when(instance > 0 && k<#voxels_k-1),
-   [ rays : frame, instance  , 5, i  , j  , k   ] $when(instance > 0 && k>0)
+   [ rays : frame, instance  , 0, i  , j  , k   ] $when(i<#voxels_i-1),
+   [ rays : frame, instance  , 1, i  , j  , k   ] $when(i>0),
+   [ rays : frame, instance  , 2, i  , j  , k   ] $when(j<#voxels_j-1),
+   [ rays : frame, instance  , 3, i  , j  , k   ] $when(j>0),
+   [ rays : frame, instance  , 4, i  , j  , k   ] $when(k<#voxels_k-1),
+   [ rays : frame, instance  , 5, i  , j  , k   ] $when(k>0)
 -> [ rays : frame, instance+1, 0, i-1, j  , k   ] $when(i>0),
    [ rays : frame, instance+1, 1, i+1, j  , k   ] $when(i<#voxels_i-1),
    [ rays : frame, instance+1, 2, i  , j-1, k   ] $when(j>0),
@@ -56,6 +56,8 @@ $context {
    [ rays : frame, instance+1, 4, i  , j  , k-1 ] $when(k>0),
    [ rays : frame, instance+1, 5, i  , j  , k+1 ] $when(k<#voxels_k-1);
 
+(produce_image : frame )
+<- [ rays : frame, #boundary_exchanges, $range(0, 6), $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k)];
 
 /******************************************************************************
 //* Input output relationships from environment */
