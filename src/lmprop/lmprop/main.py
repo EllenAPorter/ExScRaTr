@@ -1,118 +1,12 @@
 import PIL.Image as pilImage
 import tkinter as tk
 import numpy as np
-import collections
 from pprint import pprint
 
-EPS = 1.0e-8 # (feeble) attempt to account for roundoff
+from .ray import Ray
+from .geometry import *
 
 EYE_FNAME = "/usr/local/share/lmprop/eye_rev.png"
-
-Intersection = collections.namedtuple('Intersection', ('p', 't'))
-
-
-def createOrientedSquare(centerPoint, wh, u):
-    """create a wh x wh square centered on centerPoint w/one edge || to u
-    """
-    u /= mag(u)
-    v = np.array((-u[1], u[0]))
-    return (centerPoint - wh/2 * u - wh/2 * v,
-            centerPoint + wh/2 * u - wh/2 * v,
-            centerPoint + wh/2 * u + wh/2 * v,
-            centerPoint - wh/2 * u + wh/2 * v)
-
-
-def createRegularPolygon(centerPoint, radius, nSides, phaseDeg=0.0):
-    dTheta = 2 * np.pi / nSides
-    phase = phaseDeg * np.pi / 180
-    polygon = []
-    for i in range(nSides):
-        theta = i * dTheta
-        dx = radius * np.cos(theta - phase)
-        dy = radius * np.sin(theta - phase)
-        p = centerPoint + np.array((dx, -dy))
-        polygon.append(p)
-    return polygon
-
-
-def lineThroughPoints(p0, p1):
-    """returns the line that passes through points p0 and p1
-
-    it returns (p0, n) where p0 is an arbitrary point on the line and n is
-    a normal to the the line, which is defined by n . (p - p0) = 0 for any
-    point p on the line.
-    """
-    dx = p1[0] - p0[0]
-    dy = p1[1] - p0[1]
-    # If dx & dy are positive, the positive half-plane is SE of the line.
-    mag = (dx**2 + dy**2)**0.5
-    n = (dy/mag, -dx/mag)
-    return (p0, n)
-
-
-def mag(v):
-    return np.linalg.norm(v)
-
-
-def normalize(v):
-    return v / mag(v)
-
-
-class Ray:
-
-    def __init__(self, o, d):
-        """the ray is of the form o+dt
-        """
-        self.o = o
-        self.d = d
-
-    def intersectsLine(self, p0, n):
-        """returns the intersection of the ray with a line (or None)
-
-        the line is (p-p0).n = 0
-        """
-        nDotD = np.dot(n, self.d)
-        if np.abs(nDotD) < EPS:
-            # If the ray begins on the line, its direction doesn't matter.
-            if mag(self.o - p0) < EPS:
-                return Intersection(self.o, 0.0)
-            else:
-                return None
-        t = np.dot(n, p0 - self.o) / nDotD
-        if t < 0: # t must be positive for the ray to intersect
-            return None
-        p = self.o + self.d * t
-        return Intersection(p, t)
-
-    def intersectsLineSegment(self, p0, p1):
-        (pOnLine, n) = lineThroughPoints(p0, p1)
-        intersection = self.intersectsLine(pOnLine, n)
-        if intersection is None:
-            return None
-
-        # At this point, the ray intersects the line defined by the
-        # points, but to intersect the line segment, the intersection must
-        # lie between them. We'll do this by seeing if the vectors from
-        # the endpoints to the intersection are antiparallel.
-        v0 = intersection.p - p0
-        v1 = intersection.p - p1
-        result = intersection if np.dot(v0, v1) <= 0 else None
-        return result
-
-    def intersectsPolygon(self, polygon):
-        """returns a list of intersections of the ray with a polygon (or [])
-        """
-        n = len(polygon)
-        result = []
-        for i in range(n):
-            p0 = polygon[i]
-            p1 = polygon[(i+1) % n]
-            intersection = self.intersectsLineSegment(p0, p1)
-            if intersection:
-                result.append(intersection)
-        def getT(intersection):
-            return intersection.t
-        return sorted(result, key=getT)
 
 
 class Application(tk.Frame):
