@@ -113,12 +113,14 @@
 }
 
 %% the following code has partly been adapted from egpubl.cls
-\newif\ifpdf  % determine if we are running PDFLaTeX or not
-\ifx\pdfoutput\undefined \pdffalse % we are not running PDFLaTeX 
-\else 
-  %\pdfoutput=1 % we are running PDFLaTeX 
-  \pdftrue 
-\fi 
+%  RRL: Commented out: "\ifpdf" already defined for "pdflatex" on Linux,
+%      so it complains.
+% \newif\ifpdf  % determine if we are running PDFLaTeX or not
+% \ifx\pdfoutput\undefined \pdffalse % we are not running PDFLaTeX 
+% \else 
+%   %\pdfoutput=1 % we are running PDFLaTeX 
+%   \pdftrue 
+% \fi 
 
 \newcommand{\vgtcinsertpkg}{}
 \DeclareOption{electronic}{%
