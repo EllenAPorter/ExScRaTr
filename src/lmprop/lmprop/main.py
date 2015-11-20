@@ -6,8 +6,16 @@ from pprint import pprint
 
 from .ray import Ray
 from .geometry import *
+from .mesh import Mesh
 
 EYE_FNAME = "/usr/local/share/lmprop/eye_rev.png"
+
+
+# attached to all objeets that participate in voxel visualization
+VOXELIZATION_TAG = 'VOXELIZATION'
+
+# attached to all objeets that illustrate a normal (voxel-free) raytrace
+RAYTRACE_TAG = 'RAYTRACE'
 
 
 class Application(tk.Frame):
@@ -30,9 +38,15 @@ class Application(tk.Frame):
                                  offvalue=False,
                                  variable=self.showVoxelization,
                                  command=self.onViewVoxelization)
+        self.showRaytrace = tk.BooleanVar(value=True) # initially
+        viewMenu.add_checkbutton(label="Raytrace",
+                                 onvalue=True,
+                                 offvalue=False,
+                                 variable=self.showRaytrace,
+                                 command=self.onViewRaytrace)
         menuBar.add_cascade(label="View", menu=viewMenu)
 
-        self.canvas = Canvas(self, nCellRows, nCellColumns)
+        self.canvas = VoxelizationCanvas(self, nCellRows, nCellColumns)
         self.canvas.grid(row=1, column=0)
 
     def onFileExport(self):
@@ -46,59 +60,25 @@ class Application(tk.Frame):
         if fname:
             self.canvas.postscript(file=fname)
 
+    def onViewRaytrace(self):
+        self.canvas.setRaytraceVisibility(self.showRaytrace.get())
+
     def onViewVoxelization(self):
         self.canvas.setVoxelizationVisibility(self.showVoxelization.get())
 
 
-class Canvas(tk.Canvas):
+class ApplicationCanvas(tk.Canvas):
+    """
+    a wrapper around tk.Canvas
 
-    VOXELIZATION = 'VOXELIZATION'
+    This fixes some problems that Tkinter has with things like Numpy arrays
+    and adds arrows.
+    """
+    CELL_ARRAY_OFFSET = 30 # allow for labels
 
-    def __init__(self, parent, nCellRows, nCellColumns):
-        self.nCellRows = nCellRows
-        self.nCellColumns= nCellColumns
-        self.width = self.nCellColumns * Cell.wh + Cell.offset
-        self.height = self.nCellRows * Cell.wh + Cell.offset
-        super().__init__(parent, 
-                         width=self.width, height=self.height,
-                         background='white')
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
 
-        self.corners = (
-            (Cell.inset, Cell.inset),
-            (Cell.inset, self.height - Cell.inset),
-            (self.width - Cell.inset, self.height - Cell.inset),
-            (self.width - Cell.inset, Cell.inset))
-
-        self.cells = self.drawCells()
-
-        pLight = self.xyPosition(0.3, 0.4)
-        illuminatedCell = self.cells[self.nCellRows-1, self.nCellColumns-1]
-        blockingCell = self.cells[0, 1]
-        illuminatedWall = illuminatedCell.walls[0]
-
-        blockingPolygon = createRegularPolygon(self.xyPosition(1.2, 0.8),
-                                               20, 6)
-        self.drawPolygon(blockingPolygon, fill='cyan', outline='black',
-                         width=1)
-
-        blockingCell.drawBlocking(pLight, 0, blockingPolygon, illuminatedWall,
-                                  tag=Canvas.VOXELIZATION)
-
-        self.drawCircle(pLight, 5, fill='yellow')
-
-        targetPolygon = createRegularPolygon(self.xyPosition(2.4, 1.5), 80, 10,
-                                             phaseDeg=10)
-        self.drawPolygon(targetPolygon, fill='blue', outline='black', width=1)
-
-        self.drawRayTrace(eyePoint=self.xyPosition(0.3, 1.25),
-                          viewDirection=self.xyDirection(0.6, 0.03),
-                          pLight=pLight,
-                          fovDeg=30,
-                          targetPolygon=targetPolygon,
-                          blockingPolygon=blockingPolygon)
-        self.setVoxelizationVisibility(True)
-            
-                    
     def drawArrow(self, p0, p1, **kwargs):
         d = 15 * normalize(p1 - p0)
         dPerp = np.array((d[1], -d[0]))
@@ -111,26 +91,7 @@ class Canvas(tk.Canvas):
         self.drawPolygon(polygon, **kwargs)
         self.create_line(p0[0], p0[1], p1[0], p1[1], **kwargs)
 
-    def drawCells(self):
-        cells = {}
-        for i in range(self.nCellRows):
-            for j in range(self.nCellColumns):
-                cells[i,j] = Cell(self, i, j, tag=Canvas.VOXELIZATION)
-        for j in range(self.nCellColumns):
-            self.drawText(((j + 0.5) * Cell.wh + Cell.offset,
-                           0.5 * Cell.offset),
-                          "{}".format(j), font=("Times", 16),
-                          tag=Canvas.VOXELIZATION)
-        for i in range(self.nCellColumns):
-            self.drawText((0.5 * Cell.offset,
-                          (i + 0.5) * Cell.wh + Cell.offset),
-                          "{}".format(i), font=("Times", 16),
-                          tag=Canvas.VOXELIZATION)
-        return cells
-
     def drawCircle(self, pCtr, r, **kwargs):
-        if 'fill' not in kwargs:
-            kwargs['fill'] = 'light green' # default
         return self.create_oval((pCtr[0] - r, pCtr[1] - r),
                                 (pCtr[0] + r, pCtr[1] + r), **kwargs)
 
@@ -145,109 +106,27 @@ class Canvas(tk.Canvas):
         return self.create_polygon([ tuple(p) for p in polygon ],
                                    **kwargs)
 
-    def drawRay(self, ray, **kwargs):
-        edgePoint = None
-        for i in range(4):
-            p0 = self.corners[i]
-            p1 = self.corners[(i+1) % 4]
-            (p0, n) = lineThroughPoints(p0, p1)
-            intersection = ray.intersectsLine(p0, n)
-            if intersection is not None:
-                if edgePoint is None \
-                       or mag(intersection.p - ray.o) < mag(edgePoint - ray.o):
-                    edgePoint = intersection.p
-        if edgePoint is not None:
-            self.drawArrow(ray.o, edgePoint)
-
-    def drawRayTrace(self, eyePoint, viewDirection, pLight, fovDeg,
-                     targetPolygon, blockingPolygon):
-        d = mag(viewDirection)
-        pViewCenter = eyePoint + viewDirection
-        normalizedViewDirection = normalize(viewDirection)
-
-        # perpendicular to the view direction
-        normalizedViewDirectionPerp = normalize(
-            np.array((viewDirection[1], -viewDirection[0])))
-
-        fov = fovDeg * np.pi / 180
-        halfW = d * np.tan(fov/2)
-
-        p0 = pViewCenter + halfW * normalizedViewDirectionPerp
-        p1 = pViewCenter - halfW * normalizedViewDirectionPerp
-        viewPlane = Mesh(self, p0, p1, 7)
-
-        nSamples = len(viewPlane.samplePoints)
-        w = 2 * halfW
-        pixelWH = w / (nSamples - 1)
-
-        for samplePoint in viewPlane.samplePoints:
-            pixelPolygon = createOrientedSquare(samplePoint, pixelWH,
-                                                viewDirection)
-            lightRay = Ray(eyePoint, samplePoint - eyePoint)
-            lightRayIntersections = lightRay.intersectsPolygon(targetPolygon)
-            if lightRayIntersections:
-                self.drawArrow(eyePoint, lightRayIntersections[0].p)
-                self.drawPolygon(pixelPolygon, fill='blue',
-                                 outline='black', width=1)
-                blockingRay = Ray(lightRayIntersections[0].p,
-                                  pLight - lightRayIntersections[0].p)
-                blockingRayIntersections = \
-                        blockingRay.intersectsPolygon(blockingPolygon)
-                if 0:
-                    print(blockingRay.o)
-                    print(blockingRay.d)
-                    print(blockingRayIntersections)
-                    print()
-                if blockingRayIntersections:
-                    self.drawArrow(lightRayIntersections[0].p, 
-                                   blockingRayIntersections[0].p,
-                                   fill='gray60')
-                else:
-                    self.drawArrow(lightRayIntersections[0].p, pLight)
-            else:
-                self.drawRay(lightRay)
-                self.drawPolygon(pixelPolygon, fill='white',
-                                 outline='black', width=1)
-
-        # need to save image reference so it won't be garbage-collected
-        self.image = tk.PhotoImage(file=EYE_FNAME)
-        self.drawImage(eyePoint, self.image)
-
     def drawRectangle(self, pUL, pLR, **kwargs):
-        if 'fill' not in kwargs:
-            kwargs['fill'] = 'light green' # default
         return self.create_rectangle(pUL[0], pUL[1], pLR[0], pLR[1], **kwargs)
 
     def drawText(self, p, text, **kwargs):
         return self.create_text(p, text=text, **kwargs)
 
-    def setVoxelizationVisibility(self, isVisible):
-        if isVisible:
-            self.itemconfigure(Canvas.VOXELIZATION, state=tk.NORMAL)
-        else:
-            self.itemconfigure(Canvas.VOXELIZATION, state=tk.HIDDEN)
-
-    def xyPosition(self, x, y):
-        return np.array((x * Cell.wh + Cell.offset,
-                         y * Cell.wh + Cell.offset), dtype=float)
-
-    def xyDirection(self, dx, dy):
-        return np.array((dx * Cell.wh, dy * Cell.wh), dtype=float)
-
 
 class Cell:
 
-    wh = 300 # width and height of (square) cells
-    wallMeshResolution = 9
-    whRect = 10 # w & h of rectangle noting light source sample
-    inset = 1  # distinguish cell walls
-    offset = 30 # allow for labels
+    SIZE = 300 # width and height of (square) cells
+    WALL_MESH_RESOLUTION = 9
+    INSET = 1  # distinguish cell walls
 
     def __init__(self, canvas, i, j, **kwargs):
-        self.pUL = np.array((j       * Cell.wh + Cell.inset + Cell.offset,
-                             i       * Cell.wh + Cell.inset + Cell.offset))
-        self.pLR = np.array(((j + 1) * Cell.wh - Cell.inset + Cell.offset,
-                             (i + 1) * Cell.wh - Cell.inset + Cell.offset))
+        self.pUL = np.array((
+            j * Cell.SIZE + Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET,
+            i * Cell.SIZE + Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET))
+        self.pLR = np.array((
+            (j+1)*Cell.SIZE - Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET,
+            (i+1)*Cell.SIZE - Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET)
+            )
         self.canvas = canvas
         self.walls = []
         for (x0, y0, x1, y1) in (
@@ -257,7 +136,7 @@ class Cell:
                 (self.pLR[0], self.pUL[1], self.pUL[0], self.pUL[1])):
             p0 = np.array((x0, y0))
             p1 = np.array((x1, y1))
-            wall = Mesh(self.canvas, p0, p1, Cell.wallMeshResolution, **kwargs)
+            wall = Mesh(p0, p1, Cell.WALL_MESH_RESOLUTION)
             self.walls.append(wall)
 
         pUL = np.array((self.pUL[0], self.pUL[1]))
@@ -265,13 +144,26 @@ class Cell:
 
         self.backgroundId = self.canvas.drawRectangle(pUL, pLR, **kwargs)
 
+        popupMenu = tk.Menu(self.canvas, tearoff=0)
+        popupMenu.add_checkbutton(label="Toggle Highlight",
+                                  onvalue=True, offvalue=False,
+                                  command=self.onToggleHighlight)
+        def onPopupBackground(evt):
+            try:
+                popupMenu.tk_popup(evt.x_root, evt.y_root, 0)
+            finally:
+                popupMenu.grab_release()
+
+        self.canvas.tag_bind(self.backgroundId, '<Button-3>',
+                             onPopupBackground)
+
         self.highlight = False
         self.setHighlight()
 
     def drawBlocking(self, pLight, wallIndex, blockingPolygon, wallTo, 
                      **kwargs):
         intercedingWall = self.walls[wallIndex]
-        for i in range(Cell.wallMeshResolution):
+        for i in range(Cell.WALL_MESH_RESOLUTION):
             pTo = wallTo.samplePoints[i]
             o = pLight
             d = normalize(pTo - o)
@@ -294,41 +186,174 @@ class Cell:
             else:
                 self.canvas.drawLine(pLight, pTo, fill='gray60', **kwargs)
 
+    def onToggleHighlight(self):
+        self.highlight = not self.highlight
+        self.setHighlight()
+
     def setHighlight(self):
         self.canvas.itemconfigure(self.backgroundId,
                                   fill= 'white' if self.highlight
                                                 else 'gray80')
 
 
-class Mesh:
-    """This is a 1D mesh analogous to a more conventional 2D or 3D mesh.
+class VoxelizationCanvas(ApplicationCanvas):
+    """an ApplicationCanvas specficially intended for this application
     """
+    def __init__(self, parent, nCellRows, nCellColumns):
+        self.nCellRows = nCellRows
+        self.nCellColumns= nCellColumns
+        self.width = (self.nCellColumns * Cell.SIZE
+                      + ApplicationCanvas.CELL_ARRAY_OFFSET)
+        self.height = (self.nCellRows * Cell.SIZE
+                      + ApplicationCanvas.CELL_ARRAY_OFFSET)
+        super().__init__(parent, 
+                         width=self.width, height=self.height,
+                         background='white')
 
-    def __init__(self, canvas, p0, p1, nSamples, **kwargs):
-        self.canvas = canvas
-        self.p0 = p0
-        self.p1 = p1
-        d = 1 / (nSamples - 1) # spacing between vertices
-        self.samplePoints = []
-        for i in range(nSamples):
-            t = i * d
-            p = self.p0 + t * (self.p1 - self.p0)
-            self.samplePoints.append(p)
-        self.canvas.drawLine(self.p0, self.p1, **kwargs)
+        self.corners = (
+            (Cell.INSET, Cell.INSET),
+            (Cell.INSET, self.height - Cell.INSET),
+            (self.width - Cell.INSET, self.height - Cell.INSET),
+            (self.width - Cell.INSET, Cell.INSET))
 
-    def line(self):
-        """returns the line the wall intersects
+        self.cells = self.drawCells()
 
-        it returns (p0, n) where p0 is an arbitrary point on the line and n is
-        a normal to the the line, which is defined by n . (p - p0) = 0 for any
-        point p on the line.
-        """
-        return lineThroughPoints(self.p0, self.p1)
+        pLight = self.xyPosition(0.3, 0.4)
+        illuminatedCell = self.cells[self.nCellRows-1, self.nCellColumns-1]
+        illuminatedWall = illuminatedCell.walls[0]
 
-    def intersectsRay(self, ray):
-        """returns true iff ray intersects the wall
-        """
-        return ray.intersectsLineSegment(self.p0, self.p1)
+        blockingPolygon = createRegularPolygon(self.xyPosition(1.2, 0.8),
+                                               20, 6)
+        self.drawPolygon(blockingPolygon, fill='cyan', outline='black',
+                         width=1)
+
+        blockingCell = self.cells[0, 1]
+        blockingCell.drawBlocking(pLight, 0, blockingPolygon, illuminatedWall,
+                                  tag=VOXELIZATION_TAG)
+
+        targetPolygon = createRegularPolygon(self.xyPosition(2.4, 1.5), 80, 10,
+                                             phaseDeg=10)
+        self.drawPolygon(targetPolygon, fill='blue', outline='black', width=1)
+
+        eyePoint=self.xyPosition(0.3, 1.25)
+        self.drawRaytrace(eyePoint,
+                          viewDirection=self.xyDisplacement(0.6, 0.03),
+                          pLight=pLight,
+                          fovDeg=30,
+                          targetPolygon=targetPolygon,
+                          blockingPolygon=blockingPolygon)
+        self.drawCircle(pLight, 10, fill='yellow')
+
+        # need to save image reference so it won't be garbage-collected
+        self.image = tk.PhotoImage(file=EYE_FNAME)
+        self.drawImage(eyePoint, self.image)
+
+        self.setVoxelizationVisibility(True)
+        self.setRaytraceVisibility(True)
+            
+                    
+    def drawCells(self):
+        cells = {}
+        for i in range(self.nCellRows):
+            for j in range(self.nCellColumns):
+                cells[i,j] = Cell(self, i, j,
+                            tag=VOXELIZATION_TAG)
+        for j in range(self.nCellColumns):
+            self.drawText(((j + 0.5) * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET,
+                           0.5 * ApplicationCanvas.CELL_ARRAY_OFFSET),
+                          "{}".format(j), font=("Times", 16),
+                          tag=VOXELIZATION_TAG)
+        for i in range(self.nCellColumns):
+            self.drawText((0.5 * ApplicationCanvas.CELL_ARRAY_OFFSET,
+                          (i + 0.5) * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET),
+                          "{}".format(i), font=("Times", 16),
+                          tag=VOXELIZATION_TAG)
+        return cells
+
+    def drawRay(self, ray, **kwargs):
+        edgePoint = None
+        for i in range(4):
+            p0 = self.corners[i]
+            p1 = self.corners[(i+1) % 4]
+            (p0, n) = lineThroughPoints(p0, p1)
+            intersection = ray.intersectsLine(p0, n)
+            if intersection is not None:
+                if edgePoint is None \
+                       or mag(intersection.p - ray.o) < mag(edgePoint - ray.o):
+                    edgePoint = intersection.p
+        if edgePoint is not None:
+            self.drawArrow(ray.o, edgePoint, **kwargs)
+
+    def drawRaytrace(self, eyePoint, viewDirection, pLight, fovDeg,
+                     targetPolygon, blockingPolygon):
+        d = mag(viewDirection)
+        pViewCenter = eyePoint + viewDirection
+        normalizedViewDirection = normalize(viewDirection)
+
+        # perpendicular to the view direction
+        normalizedViewDirectionPerp = normalize(
+            np.array((viewDirection[1], -viewDirection[0])))
+
+        fov = fovDeg * np.pi / 180
+        halfW = d * np.tan(fov/2)
+
+        p0 = pViewCenter + halfW * normalizedViewDirectionPerp
+        p1 = pViewCenter - halfW * normalizedViewDirectionPerp
+        viewPlane = Mesh(p0, p1, 7)
+
+        nSamples = len(viewPlane.samplePoints)
+        w = 2 * halfW
+        pixelWH = w / (nSamples - 1)
+
+        for samplePoint in viewPlane.samplePoints:
+            pixelPolygon = createOrientedSquare(samplePoint, pixelWH,
+                                                viewDirection)
+            lightRay = Ray(eyePoint, samplePoint - eyePoint)
+            lightRayIntersections = lightRay.intersectsPolygon(targetPolygon)
+            if lightRayIntersections:
+                self.drawArrow(eyePoint, lightRayIntersections[0].p,
+                               tag=RAYTRACE_TAG)
+                self.drawPolygon(pixelPolygon, fill='blue',
+                                 outline='black', width=1, tag=RAYTRACE_TAG)
+                blockingRay = Ray(lightRayIntersections[0].p,
+                                  pLight - lightRayIntersections[0].p)
+                blockingRayIntersections = \
+                        blockingRay.intersectsPolygon(blockingPolygon)
+                if blockingRayIntersections:
+                    self.drawArrow(lightRayIntersections[0].p, 
+                                   blockingRayIntersections[0].p,
+                                   fill='gray60',
+                                   tag=RAYTRACE_TAG)
+                else:
+                    self.drawArrow(lightRayIntersections[0].p, pLight,
+                                   tag=RAYTRACE_TAG)
+            else:
+                self.drawRay(lightRay, tag=RAYTRACE_TAG)
+                self.drawPolygon(pixelPolygon, fill='white',
+                                 outline='black', width=1, tag=RAYTRACE_TAG)
+
+    def onMousePress(self, evt):
+        print(self.find_closest(evt.x, evt.y))
+
+    def setRaytraceVisibility(self, isVisible):
+        if isVisible:
+            self.itemconfigure(RAYTRACE_TAG, state=tk.NORMAL)
+        else:
+            self.itemconfigure(RAYTRACE_TAG, state=tk.HIDDEN)
+
+    def setVoxelizationVisibility(self, isVisible):
+        if isVisible:
+            self.itemconfigure(VOXELIZATION_TAG, state=tk.NORMAL)
+        else:
+            self.itemconfigure(VOXELIZATION_TAG, state=tk.HIDDEN)
+
+    def xyPosition(self, x, y):
+        return np.array((x * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET,
+                         y * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET),
+                         dtype=float)
+
+    def xyDisplacement(self, dx, dy):
+        return np.array((dx * Cell.SIZE, dy * Cell.SIZE), dtype=float)
 
 
 def main():
