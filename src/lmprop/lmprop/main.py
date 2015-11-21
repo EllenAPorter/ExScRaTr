@@ -17,6 +17,10 @@ VOXELIZATION_TAG = 'VOXELIZATION'
 # attached to all objeets that illustrate a normal (voxel-free) raytrace
 RAYTRACE_TAG = 'RAYTRACE'
 
+# all dashed lines drawn with this dash pattern
+DASH_PATTERN = (10, 10)
+
+ITEM_LABEL_FONT = ('Times', 14)
 
 class Application(tk.Frame):
 
@@ -46,8 +50,10 @@ class Application(tk.Frame):
                                  command=self.onViewRaytrace)
         menuBar.add_cascade(label="View", menu=viewMenu)
 
-        self.canvas = VoxelizationCanvas(self, nCellRows, nCellColumns)
-        self.canvas.grid(row=1, column=0)
+        
+        self.lmpropCanvas = LmpropCanvas(self, nCellRows, nCellColumns,
+                viewPoint=LmpropCanvas.xyPosition(0.3, 1.25))
+        self.lmpropCanvas.grid(row=1, column=0)
 
     def onFileExport(self):
         fname = tkfd.asksaveasfilename(
@@ -58,13 +64,14 @@ class Application(tk.Frame):
             )
         )
         if fname:
-            self.canvas.postscript(file=fname)
+            self.lmpropCanvas.postscript(file=fname)
 
     def onViewRaytrace(self):
-        self.canvas.setRaytraceVisibility(self.showRaytrace.get())
+        self.lmpropCanvas.setRaytraceVisibility(self.showRaytrace.get())
 
     def onViewVoxelization(self):
-        self.canvas.setVoxelizationVisibility(self.showVoxelization.get())
+        self.lmpropCanvas.setVoxelizationVisibility(
+            self.showVoxelization.get())
 
 
 class ApplicationCanvas(tk.Canvas):
@@ -74,8 +81,6 @@ class ApplicationCanvas(tk.Canvas):
     This fixes some problems that Tkinter has with things like Numpy arrays
     and adds arrows.
     """
-    CELL_ARRAY_OFFSET = 30 # allow for labels
-
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
 
@@ -110,7 +115,7 @@ class ApplicationCanvas(tk.Canvas):
         return self.create_rectangle(pUL[0], pUL[1], pLR[0], pLR[1], **kwargs)
 
     def drawText(self, p, text, **kwargs):
-        return self.create_text(p, text=text, **kwargs)
+        return self.create_text(tuple(p), text=text, **kwargs)
 
 
 class Cell:
@@ -119,15 +124,11 @@ class Cell:
     WALL_MESH_RESOLUTION = 9
     INSET = 1  # distinguish cell walls
 
-    def __init__(self, canvas, i, j, **kwargs):
-        self.pUL = np.array((
-            j * Cell.SIZE + Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET,
-            i * Cell.SIZE + Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET))
-        self.pLR = np.array((
-            (j+1)*Cell.SIZE - Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET,
-            (i+1)*Cell.SIZE - Cell.INSET + ApplicationCanvas.CELL_ARRAY_OFFSET)
-            )
-        self.canvas = canvas
+    def __init__(self, lmpropCanvas, i, j, **kwargs):
+        self.lmpropCanvas = lmpropCanvas
+        insetVector = np.array((Cell.INSET, Cell.INSET))
+        self.pUL = LmpropCanvas.xyPosition(j,   i  ) + insetVector
+        self.pLR = LmpropCanvas.xyPosition(j+1, i+1) - insetVector
         self.walls = []
         for (x0, y0, x1, y1) in (
                 (self.pUL[0], self.pUL[1], self.pUL[0], self.pLR[1]),
@@ -142,70 +143,49 @@ class Cell:
         pUL = np.array((self.pUL[0], self.pUL[1]))
         pLR = np.array((self.pLR[0], self.pLR[1]))
 
-        self.backgroundId = self.canvas.drawRectangle(pUL, pLR, **kwargs)
+        self.backgroundId = self.lmpropCanvas.drawRectangle(pUL, pLR, **kwargs)
 
-        popupMenu = tk.Menu(self.canvas, tearoff=0)
+        popupMenu = tk.Menu(self.lmpropCanvas, tearoff=0)
         popupMenu.add_checkbutton(label="Toggle Highlight",
                                   onvalue=True, offvalue=False,
                                   command=self.onToggleHighlight)
+
         def onPopupBackground(evt):
             try:
                 popupMenu.tk_popup(evt.x_root, evt.y_root, 0)
             finally:
                 popupMenu.grab_release()
 
-        self.canvas.tag_bind(self.backgroundId, '<Button-3>',
+        self.lmpropCanvas.tag_bind(self.backgroundId, '<Button-3>',
                              onPopupBackground)
 
         self.highlight = False
         self.setHighlight()
-
-    def drawBlocking(self, pLight, wallIndex, blockingPolygon, wallTo, 
-                     **kwargs):
-        intercedingWall = self.walls[wallIndex]
-        for i in range(Cell.WALL_MESH_RESOLUTION):
-            pTo = wallTo.samplePoints[i]
-            o = pLight
-            d = normalize(pTo - o)
-            ray = Ray(o, d)
-
-            wallIntersection = intercedingWall.intersectsRay(ray)
-            if wallIntersection is not None:
-                self.canvas.drawLine(pLight, wallIntersection.p, **kwargs)
-                self.canvas.drawArrow(wallIntersection.p,
-                                      wallIntersection.p + 20*d, **kwargs)
-                blockingIntersections = ray.intersectsPolygon(blockingPolygon)
-                if blockingIntersections:
-                    self.canvas.drawArrow(wallIntersection.p, 
-                                     blockingIntersections[0].p, **kwargs)
-                    self.canvas.drawLine(blockingIntersections[1].p,
-                                    pTo, fill='gray60', **kwargs)
-                else:
-                    self.canvas.drawLine(wallIntersection.p, pTo, **kwargs)
-                    self.canvas.drawArrow(pTo, pTo + 20*d, **kwargs)
-            else:
-                self.canvas.drawLine(pLight, pTo, fill='gray60', **kwargs)
 
     def onToggleHighlight(self):
         self.highlight = not self.highlight
         self.setHighlight()
 
     def setHighlight(self):
-        self.canvas.itemconfigure(self.backgroundId,
-                                  fill= 'white' if self.highlight
-                                                else 'gray80')
+        self.lmpropCanvas.itemconfigure(self.backgroundId,
+                                        fill='white' if self.highlight
+                                        else 'gray80')
 
 
-class VoxelizationCanvas(ApplicationCanvas):
+class LmpropCanvas(ApplicationCanvas):
     """an ApplicationCanvas specficially intended for this application
     """
-    def __init__(self, parent, nCellRows, nCellColumns):
+
+    CELL_ARRAY_OFFSET = 30 # allow for labels
+    LIGHT_RADIUS = 10
+
+    def __init__(self, parent, nCellRows, nCellColumns, viewPoint):
         self.nCellRows = nCellRows
         self.nCellColumns= nCellColumns
         self.width = (self.nCellColumns * Cell.SIZE
-                      + ApplicationCanvas.CELL_ARRAY_OFFSET)
+                      + LmpropCanvas.CELL_ARRAY_OFFSET)
         self.height = (self.nCellRows * Cell.SIZE
-                      + ApplicationCanvas.CELL_ARRAY_OFFSET)
+                      + LmpropCanvas.CELL_ARRAY_OFFSET)
         super().__init__(parent, 
                          width=self.width, height=self.height,
                          background='white')
@@ -218,40 +198,80 @@ class VoxelizationCanvas(ApplicationCanvas):
 
         self.cells = self.drawCells()
 
-        pLight = self.xyPosition(0.3, 0.4)
+        self.lightPosition = LmpropCanvas.xyPosition(0.3, 0.4)
         illuminatedCell = self.cells[self.nCellRows-1, self.nCellColumns-1]
         illuminatedWall = illuminatedCell.walls[0]
 
-        blockingPolygon = createRegularPolygon(self.xyPosition(1.2, 0.8),
-                                               20, 6)
+        blockingPolygon = createRegularPolygon(
+            LmpropCanvas.xyPosition(1.2, 0.8), 20, 6)
         self.drawPolygon(blockingPolygon, fill='cyan', outline='black',
                          width=1)
 
         blockingCell = self.cells[0, 1]
-        blockingCell.drawBlocking(pLight, 0, blockingPolygon, illuminatedWall,
-                                  tag=VOXELIZATION_TAG)
+        blockingWall = blockingCell.walls[0]
+        self.drawBlocking(blockingWall,
+                          blockingPolygon,
+                          illuminatedWall,
+                          tag=VOXELIZATION_TAG)
 
-        targetPolygon = createRegularPolygon(self.xyPosition(2.4, 1.5), 80, 10,
-                                             phaseDeg=10)
+        targetPolygon = createRegularPolygon(
+            LmpropCanvas.xyPosition(2.4, 1.5), 80, 10, phaseDeg=10)
         self.drawPolygon(targetPolygon, fill='blue', outline='black', width=1)
 
-        eyePoint=self.xyPosition(0.3, 1.25)
-        self.drawRaytrace(eyePoint,
-                          viewDirection=self.xyDisplacement(0.6, 0.03),
-                          pLight=pLight,
+        self.drawRaytrace(viewPoint,
+                          viewDirection=LmpropCanvas.xyDisplacement(0.6, 0.03),
                           fovDeg=30,
                           targetPolygon=targetPolygon,
                           blockingPolygon=blockingPolygon)
-        self.drawCircle(pLight, 10, fill='yellow')
+
+        self.drawText(self.lightPosition - np.array((0, 40)),
+                      "point\nlight source",
+                      font=ITEM_LABEL_FONT, justify=tk.CENTER)
+        self.drawCircle(self.lightPosition,
+                        LmpropCanvas.LIGHT_RADIUS, fill='yellow')
 
         # need to save image reference so it won't be garbage-collected
         self.image = tk.PhotoImage(file=EYE_FNAME)
-        self.drawImage(eyePoint, self.image)
+
+        self.drawText(viewPoint - np.array((0, 30)),
+                      "viewer",
+                      font=ITEM_LABEL_FONT, justify=tk.CENTER)
+        self.drawImage(viewPoint, self.image)
 
         self.setVoxelizationVisibility(True)
         self.setRaytraceVisibility(True)
             
-                    
+    def drawBlocking(self, blockingWall, blockingPolygon,
+                     collectingWall, **kwargs):
+        for i in range(Cell.WALL_MESH_RESOLUTION):
+            destinationPoint = collectingWall.samplePoints[i]
+            o = self.lightPosition
+            d = normalize(destinationPoint - o)
+            ray = Ray(o, d)
+
+            wallIntersection = blockingWall.intersectsRay(ray)
+            if wallIntersection is not None:
+                self.drawLine(
+                    self.lightPosition, wallIntersection.p, **kwargs)
+                if 0: # if the blocking cell is the terminus
+                  self.drawArrow(wallIntersection.p,
+                               wallIntersection.p + 20*d, **kwargs)
+                blockingIntersections = ray.intersectsPolygon(blockingPolygon)
+                if blockingIntersections:
+                    self.drawArrow(wallIntersection.p, 
+                                     blockingIntersections[0].p, **kwargs)
+                    self.drawLine(blockingIntersections[1].p,
+                                  destinationPoint, dash=DASH_PATTERN,
+                                  **kwargs)
+                else:
+                    self.drawLine(wallIntersection.p,
+                                  destinationPoint, **kwargs)
+                    self.drawArrow(destinationPoint,
+                                   destinationPoint + 20*d, **kwargs)
+            else:
+                self.drawLine(self.lightPosition, destinationPoint,
+                              dash=DASH_PATTERN, **kwargs)
+
     def drawCells(self):
         cells = {}
         for i in range(self.nCellRows):
@@ -259,13 +279,15 @@ class VoxelizationCanvas(ApplicationCanvas):
                 cells[i,j] = Cell(self, i, j,
                             tag=VOXELIZATION_TAG)
         for j in range(self.nCellColumns):
-            self.drawText(((j + 0.5) * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET,
-                           0.5 * ApplicationCanvas.CELL_ARRAY_OFFSET),
+            self.drawText(((j + 0.5) * Cell.SIZE
+                           + LmpropCanvas.CELL_ARRAY_OFFSET,
+                           0.5 * LmpropCanvas.CELL_ARRAY_OFFSET),
                           "{}".format(j), font=("Times", 16),
                           tag=VOXELIZATION_TAG)
         for i in range(self.nCellColumns):
-            self.drawText((0.5 * ApplicationCanvas.CELL_ARRAY_OFFSET,
-                          (i + 0.5) * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET),
+            self.drawText((0.5 * LmpropCanvas.CELL_ARRAY_OFFSET,
+                          (i + 0.5) * Cell.SIZE
+                           + LmpropCanvas.CELL_ARRAY_OFFSET),
                           "{}".format(i), font=("Times", 16),
                           tag=VOXELIZATION_TAG)
         return cells
@@ -284,10 +306,10 @@ class VoxelizationCanvas(ApplicationCanvas):
         if edgePoint is not None:
             self.drawArrow(ray.o, edgePoint, **kwargs)
 
-    def drawRaytrace(self, eyePoint, viewDirection, pLight, fovDeg,
+    def drawRaytrace(self, viewPoint, viewDirection, fovDeg,
                      targetPolygon, blockingPolygon):
         d = mag(viewDirection)
-        pViewCenter = eyePoint + viewDirection
+        imageCenter = viewPoint + viewDirection
         normalizedViewDirection = normalize(viewDirection)
 
         # perpendicular to the view direction
@@ -297,40 +319,49 @@ class VoxelizationCanvas(ApplicationCanvas):
         fov = fovDeg * np.pi / 180
         halfW = d * np.tan(fov/2)
 
-        p0 = pViewCenter + halfW * normalizedViewDirectionPerp
-        p1 = pViewCenter - halfW * normalizedViewDirectionPerp
+        p0 = imageCenter + halfW * normalizedViewDirectionPerp
+        p1 = imageCenter - halfW * normalizedViewDirectionPerp
         viewPlane = Mesh(p0, p1, 7)
 
         nSamples = len(viewPlane.samplePoints)
         w = 2 * halfW
-        pixelWH = w / (nSamples - 1)
+        pixelSize = w / (nSamples - 1)
 
         for samplePoint in viewPlane.samplePoints:
-            pixelPolygon = createOrientedSquare(samplePoint, pixelWH,
+            pixelPolygon = createOrientedSquare(samplePoint, pixelSize,
                                                 viewDirection)
-            lightRay = Ray(eyePoint, samplePoint - eyePoint)
-            lightRayIntersections = lightRay.intersectsPolygon(targetPolygon)
-            if lightRayIntersections:
-                self.drawArrow(eyePoint, lightRayIntersections[0].p,
+            viewRay = Ray(viewPoint, samplePoint - viewPoint)
+            viewRayIntersections = viewRay.intersectsPolygon(targetPolygon)
+            if viewRayIntersections:
+                self.drawArrow(viewPoint, viewRayIntersections[0].p,
                                tag=RAYTRACE_TAG)
                 self.drawPolygon(pixelPolygon, fill='blue',
                                  outline='black', width=1, tag=RAYTRACE_TAG)
-                blockingRay = Ray(lightRayIntersections[0].p,
-                                  pLight - lightRayIntersections[0].p)
+                blockingRay = Ray(viewRayIntersections[0].p,
+                                  self.lightPosition
+                                  - viewRayIntersections[0].p)
                 blockingRayIntersections = \
                         blockingRay.intersectsPolygon(blockingPolygon)
                 if blockingRayIntersections:
-                    self.drawArrow(lightRayIntersections[0].p, 
+                    self.drawArrow(viewRayIntersections[0].p, 
                                    blockingRayIntersections[0].p,
                                    fill='gray60',
                                    tag=RAYTRACE_TAG)
                 else:
-                    self.drawArrow(lightRayIntersections[0].p, pLight,
+                    endPoint = (self.lightPosition 
+                            - LmpropCanvas.LIGHT_RADIUS 
+                              * normalize(blockingRay.d))
+                    self.drawArrow(viewRayIntersections[0].p,
+                                   endPoint,
                                    tag=RAYTRACE_TAG)
             else:
-                self.drawRay(lightRay, tag=RAYTRACE_TAG)
+                self.drawRay(viewRay, tag=RAYTRACE_TAG)
                 self.drawPolygon(pixelPolygon, fill='white',
                                  outline='black', width=1, tag=RAYTRACE_TAG)
+
+        self.drawText(imageCenter + np.array((0, 80)),
+                  "image",
+                  font=ITEM_LABEL_FONT, justify=tk.CENTER, tag=RAYTRACE_TAG)
 
     def onMousePress(self, evt):
         print(self.find_closest(evt.x, evt.y))
@@ -347,12 +378,14 @@ class VoxelizationCanvas(ApplicationCanvas):
         else:
             self.itemconfigure(VOXELIZATION_TAG, state=tk.HIDDEN)
 
-    def xyPosition(self, x, y):
-        return np.array((x * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET,
-                         y * Cell.SIZE + ApplicationCanvas.CELL_ARRAY_OFFSET),
+    @staticmethod
+    def xyPosition(x, y):
+        return np.array((x * Cell.SIZE + LmpropCanvas.CELL_ARRAY_OFFSET,
+                         y * Cell.SIZE + LmpropCanvas.CELL_ARRAY_OFFSET),
                          dtype=float)
 
-    def xyDisplacement(self, dx, dy):
+    @staticmethod
+    def xyDisplacement(dx, dy):
         return np.array((dx * Cell.SIZE, dy * Cell.SIZE), dtype=float)
 
 
