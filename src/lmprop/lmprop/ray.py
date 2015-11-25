@@ -1,4 +1,3 @@
-import collections
 import numpy as np
 
 from .geometry import *
@@ -6,7 +5,18 @@ from .geometry import *
 EPS = 1.0e-8 # (feeble) attempt to account for roundoff
 
 
-Intersection = collections.namedtuple('Intersection', ('p', 't'))
+class Intersection:
+
+    def __init__(self, p, t):
+        self.p = p
+        self.t = t
+
+    def __lt__(self, other):
+        """compares two Intersections
+
+        This allows Intersections to be sorted.
+        """
+        return self.t < other.t
 
 
 class Ray:

@@ -15,7 +15,16 @@ EYE_FNAME = "/usr/local/share/lmprop/eye_rev.png"
 LINE_WIDTH = 2
 
 # attached to all objeets that participate in voxel visualization
+# (light or view)
 VOXELIZATION_TAG = 'VOXELIZATION'
+
+# attached to all objeets that participate in voxel visualization of
+# light propagation
+LIGHT_VOXELIZATION_TAG = 'LIGHT_VOXELIZATION'
+
+# attached to all objeets that participate in voxel visualization of
+# the view
+VIEW_VOXELIZATION_TAG = 'VIEW_VOXELIZATION'
 
 # attached to all objeets that illustrate a normal (voxel-free) raytrace
 RAYTRACE_TAG = 'RAYTRACE'
@@ -23,7 +32,7 @@ RAYTRACE_TAG = 'RAYTRACE'
 # all dashed lines drawn with this dash pattern
 DASH_PATTERN = (10, 10)
 
-# color schemed (for filled polygons)
+# color schemes (for filled polygons)
 BACKGROUND_HIGHLIGHT_COLOR = 'white'
 BACKGROUND_NORMAL_COLOR    = 'gray80'
 BLOCKING_POLYGON_COLOR     = 'gray40'
@@ -32,16 +41,41 @@ LIGHT_COLOR                = 'yellow'
 BLOCKED_RAY_COLOR          = 'gray50'
 MISSED_PIXEL_COLOR         = 'white'
 
+# These are the choices for view mode.
+SCENE_ONLY_VIEW_MODE = "Scene Only"
+RAYTRACE_VIEW_MODE = "Raytrace"
+VOXELIZATION_VIEW_MODE = "Voxelization"
+LIGHT_VOXELIZATION_VIEW_MODE = "Voxelized Light Propagation"
+VIEW_VOXELIZATION_VIEW_MODE = "Voxelized View Propagation"
+        
 
 ITEM_LABEL_FONT = ('Times', 14)
 
 class Application(tk.Frame):
 
-    def __init__(self, parent, nCellRows, nCellColumns, *args, **kwargs):
+    def __init__(self, parent, root, nCellRows, nCellColumns, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
 
-        menuBar = tk.Menu(parent, tearoff=0)
-        parent.config(menu=menuBar)
+        # Note that we can't bind keyboard events to `self`, since
+        # Frames can't get keyboard events.
+        root.bind("q",
+                    lambda event: root.quit())
+        root.bind("s",
+                    lambda event: self.setViewMode(SCENE_ONLY_VIEW_MODE))
+        root.bind("r",
+                    lambda event: self.setViewMode(RAYTRACE_VIEW_MODE))
+        root.bind("l",
+                    lambda event:
+                        self.setViewMode(LIGHT_VOXELIZATION_VIEW_MODE))
+        root.bind("v",
+                    lambda event: 
+                        self.setViewMode(VIEW_VOXELIZATION_VIEW_MODE))
+        root.bind("V",
+                    lambda event: 
+                        self.setViewMode(VOXELIZATION_VIEW_MODE))
+
+        menuBar = tk.Menu(root, tearoff=0)
+        root.config(menu=menuBar)
 
         fileMenu = tk.Menu(menuBar, tearoff=0)
         fileMenu.add_command(label="Export PS ...", command=self.onFileExport)
@@ -49,18 +83,23 @@ class Application(tk.Frame):
         menuBar.add_cascade(label="File", menu=fileMenu)
 
         viewMenu = tk.Menu(menuBar, tearoff=0)
-        self.showVoxelization = tk.BooleanVar(value=False) # initially
-        viewMenu.add_checkbutton(label="Voxelization",
-                                 onvalue=True,
-                                 offvalue=False,
-                                 variable=self.showVoxelization,
-                                 command=self.onViewVoxelization)
-        self.showRaytrace = tk.BooleanVar(value=False) # initially
-        viewMenu.add_checkbutton(label="Raytrace",
-                                 onvalue=True,
-                                 offvalue=False,
-                                 variable=self.showRaytrace,
-                                 command=self.onViewRaytrace)
+
+        self.viewModeVar = tk.StringVar(value=SCENE_ONLY_VIEW_MODE)
+        viewMenu.add_radiobutton(label=SCENE_ONLY_VIEW_MODE,
+                                 variable=self.viewModeVar,
+                                 command=self.onViewMode)
+        viewMenu.add_radiobutton(label=RAYTRACE_VIEW_MODE,
+                                 variable=self.viewModeVar,
+                                 command=self.onViewMode)
+        viewMenu.add_radiobutton(label=VOXELIZATION_VIEW_MODE,
+                                 variable=self.viewModeVar,
+                                 command=self.onViewMode)
+        viewMenu.add_radiobutton(label=LIGHT_VOXELIZATION_VIEW_MODE,
+                                 variable=self.viewModeVar,
+                                 command=self.onViewMode)
+        viewMenu.add_radiobutton(label=VIEW_VOXELIZATION_VIEW_MODE,
+                                 variable=self.viewModeVar,
+                                 command=self.onViewMode)
         menuBar.add_cascade(label="View", menu=viewMenu)
 
         
@@ -71,6 +110,7 @@ class Application(tk.Frame):
     def onFileExport(self):
         fname = tkfd.asksaveasfilename(
             defaultextension=".ps",
+            initialfile="lmprop.ps",
             filetypes=(
                 ("Postscript", "*.ps" ),
                 ("All",        "*" ),
@@ -79,12 +119,37 @@ class Application(tk.Frame):
         if fname:
             self.lmpropCanvas.postscript(file=fname)
 
-    def onViewRaytrace(self):
-        self.lmpropCanvas.setRaytraceVisibility(self.showRaytrace.get())
+    def setViewMode(self, viewMode):
+        self.viewModeVar.set(viewMode)
+        if viewMode == SCENE_ONLY_VIEW_MODE:
+            self.lmpropCanvas.setRaytraceVisibility(False)
+            self.lmpropCanvas.setVoxelizationVisibility(False)
+            self.lmpropCanvas.setLightVoxelizationVisibility(False)
+            self.lmpropCanvas.setViewVoxelizationVisibility(False)
+        elif viewMode == RAYTRACE_VIEW_MODE:
+            self.lmpropCanvas.setRaytraceVisibility(True)
+            self.lmpropCanvas.setVoxelizationVisibility(False)
+            self.lmpropCanvas.setLightVoxelizationVisibility(False)
+            self.lmpropCanvas.setViewVoxelizationVisibility(False)
+        elif viewMode == VOXELIZATION_VIEW_MODE:
+            self.lmpropCanvas.setRaytraceVisibility(False)
+            self.lmpropCanvas.setVoxelizationVisibility(True)
+            self.lmpropCanvas.setLightVoxelizationVisibility(False)
+            self.lmpropCanvas.setViewVoxelizationVisibility(False)
+        elif viewMode == LIGHT_VOXELIZATION_VIEW_MODE:
+            self.lmpropCanvas.setRaytraceVisibility(False)
+            self.lmpropCanvas.setVoxelizationVisibility(True)
+            self.lmpropCanvas.setLightVoxelizationVisibility(True)
+            self.lmpropCanvas.setViewVoxelizationVisibility(False)
+        else:
+            assert viewMode == VIEW_VOXELIZATION_VIEW_MODE
+            self.lmpropCanvas.setRaytraceVisibility(False)
+            self.lmpropCanvas.setVoxelizationVisibility(True)
+            self.lmpropCanvas.setLightVoxelizationVisibility(False)
+            self.lmpropCanvas.setViewVoxelizationVisibility(True)
 
-    def onViewVoxelization(self):
-        self.lmpropCanvas.setVoxelizationVisibility(
-            self.showVoxelization.get())
+    def onViewMode(self):
+        self.setViewMode(self.viewModeVar.get())
 
 
 class ApplicationCanvas(tk.Canvas):
@@ -148,7 +213,6 @@ class Wall(Mesh):
         self.cell = cell
         d = p1 - p0
         self.normal = normalize(np.array((d[1], -d[0])))
-        self.tag = '{}'.format(k)
 
 
 class Cell:
@@ -160,12 +224,9 @@ class Cell:
     def __init__(self, lmpropCanvas, i, j, **kwargs):
         self.lmpropCanvas = lmpropCanvas
         insetVector = np.array((Cell.INSET, Cell.INSET))
-        self.i = i
-        self.j = j
-        pUL = LmpropCanvas.xyPosition(self.j,   self.i  ) + insetVector
-        pLR = LmpropCanvas.xyPosition(self.j+1, self.i+1) - insetVector
+        pUL = lmpropCanvas.xyPosition(j,   i  ) + insetVector
+        pLR = lmpropCanvas.xyPosition(j+1, i+1) - insetVector
         self.walls = []
-        self.tag = '{},{}'.format(self.i, self.j)
         self.polygon = np.array(
             (pUL,
              (pUL[0], pLR[1]),
@@ -211,8 +272,9 @@ class LmpropCanvas(ApplicationCanvas):
     """an ApplicationCanvas specficially intended for this application
     """
 
-    CELL_ARRAY_OFFSET = 30 # allow for labels
+    CELL_ARRAY_OFFSET = 30 # allow for row and column labels
     LIGHT_RADIUS = 10
+    cellAtRowColumn = {}
 
     def __init__(self, parent, nCellRows, nCellColumns, viewPosition):
         self.nCellRows = nCellRows
@@ -233,40 +295,29 @@ class LmpropCanvas(ApplicationCanvas):
 
         self.cells = self.drawCells()
 
-        self.lightPosition = LmpropCanvas.xyPosition(0.2, 0.3)
+        self.lightPosition = self.xyPosition(0.2, 0.3)
 
-        center = LmpropCanvas.xyPosition(1.2, 0.8)
+        center = self.xyPosition(1.2, 0.8)
         radius = 20
         self.blockingPolygon = createRegularPolygon(center, radius, 6)
+
+        illuminatedCell = LmpropCanvas.cellAtRowColumn[
+            self.nCellRows-1, self.nCellColumns-1]
+        self.drawLightRayPropagation(self.lightPosition, illuminatedCell)
+
         self.drawPolygon(self.blockingPolygon, fill=BLOCKING_POLYGON_COLOR,
                          outline='black', width=1)
-        self.drawText(center + np.array((radius + 40, radius - 70)),
+        self.drawText(center + np.array((radius + 40, radius + 5)),
                       "blocking\nobject",
                       font=ITEM_LABEL_FONT, justify=tk.CENTER)
 
-        illuminatedCell = self.cells[self.nCellRows-1, self.nCellColumns-1]
-        self.illuminatedWall = illuminatedCell.walls[0]
-
-        self.drawPropagation(self.lightPosition,
-                             self.cells[0, 0], self.illuminatedWall)
-        self.drawPropagation(self.lightPosition,
-                             self.cells[0, 1], self.illuminatedWall)
-        self.drawPropagation(self.lightPosition,
-                             self.cells[1, 1], self.illuminatedWall)
-        self.drawPropagation(self.lightPosition,
-                             self.cells[1, 0], self.illuminatedWall)
-
         fovDeg = 30
-        viewDirection = LmpropCanvas.xyDisplacement(0.6, 0.03)
+        viewDirection = self.xyDisplacement(0.6, 0.03)
         viewMesh = self.getViewMesh(viewPosition, viewDirection, fovDeg)
-        self.drawPropagation(viewPosition,
-                             self.cells[1, 0], viewMesh)
-        self.drawPropagation(viewPosition,
-                             self.cells[1, 1], viewMesh)
-        self.drawPropagation(viewPosition,
-                             self.cells[1, 2], viewMesh)
 
-        center = LmpropCanvas.xyPosition(2.4, 1.5)
+        self.drawViewRayPropagation(viewPosition, viewMesh, illuminatedCell)
+
+        center = self.xyPosition(2.4, 1.5)
         radius = 80
         self.targetPolygon = createRegularPolygon(center, radius, 
                                                   10, phaseDeg=10)
@@ -291,56 +342,19 @@ class LmpropCanvas(ApplicationCanvas):
                       font=ITEM_LABEL_FONT, justify=tk.CENTER)
         self.drawImage(viewPosition, self.image)
 
-        self.setVoxelizationVisibility(parent.showVoxelization.get())
-        self.setRaytraceVisibility(parent.showRaytrace.get())
+        # Initially, only show the scene.
+        self.setVoxelizationVisibility(False)
+        self.setLightVoxelizationVisibility(False)
+        self.setRaytraceVisibility(False)
+        self.setViewVoxelizationVisibility(False)
             
-    def drawBlocking(self, iBlock, jBlock, kBlock):
-        """display blocking of wall `kBlock` of cell (`iBlock`, `jBlock`)
-        """
-        blockingCell = self.cells[iBlock, jBlock]
-        blockingWall = blockingCell.walls[kBlock]
-        tag = VOXELIZATION_TAG
-        for i in range(Cell.WALL_MESH_RESOLUTION):
-            destinationPoint = self.illuminatedWall.samplePoints[i]
-            o = self.lightPosition
-            d = normalize(destinationPoint - o)
-            ray = Ray(o, d)
-
-            wallIntersection = blockingWall.intersectsRay(ray)
-            if wallIntersection is not None:
-                self.drawLine(
-                    self.lightPosition, wallIntersection.p,
-                    tag=VOXELIZATION_TAG)
-                if 0: # if the blocking cell is the terminus
-                  self.drawArrow(wallIntersection.p,
-                               wallIntersection.p + 20*d, tag=VOXELIZATION_TAG)
-                blockingIntersections = ray.intersectsPolygon(
-                        self.blockingPolygon)
-                if blockingIntersections:
-                    self.drawArrow(wallIntersection.p, 
-                                     blockingIntersections[0].p,
-                                     tag=tag)
-
-                    self.drawLine(blockingIntersections[1].p,
-                                  destinationPoint,
-                                  fill=BLOCKED_RAY_COLOR,
-                                  tag=tag)
-                else:
-                    self.drawLine(wallIntersection.p,
-                                  destinationPoint, tag=VOXELIZATION_TAG)
-                    self.drawArrow(destinationPoint,
-                                   destinationPoint + 20*d,
-                                   tag=tag)
-            else:
-                self.drawLine(self.lightPosition, destinationPoint,
-                              dash=DASH_PATTERN, tag=tag)
-
     def drawCells(self):
-        cells = {}
+        cells = []
         for i in range(self.nCellRows):
             for j in range(self.nCellColumns):
-                cells[i,j] = Cell(self, i, j,
-                            tag=VOXELIZATION_TAG)
+                cell = Cell(self, i, j, tag=VOXELIZATION_TAG)
+                self.cellAtRowColumn[i, j] = cell
+                cells.append(cell)
         for j in range(self.nCellColumns):
             self.drawText(((j + 0.5) * Cell.SIZE
                            + LmpropCanvas.CELL_ARRAY_OFFSET,
@@ -355,63 +369,79 @@ class LmpropCanvas(ApplicationCanvas):
                           tag=VOXELIZATION_TAG)
         return cells
 
-    def drawPropagation(self, position, cell, destinationWall):
-        """display propagation of wall `kBlock` of cell (`iBlock`, `jBlock`)
-        """
-        tag = VOXELIZATION_TAG
+    def drawLightRayPropagation(self, position, illuminatedCell):
+        for cell in self.cells:
+            if cell == illuminatedCell:
+                continue # don't propagate rays through the final cell
+            for wall in illuminatedCell.walls:
+                (p, n) = lineThroughPoints(wall.p0, wall.p1)
+                if np.dot(p - position, n) > 0:
+                    self.drawPropagationToCellWall(position, cell, wall,
+                                                   LIGHT_VOXELIZATION_TAG)
+
+    def drawViewRayPropagation(self, position, viewMesh, illuminatedCell):
+        for cell in self.cells:
+            if cell == illuminatedCell:
+                continue # don't propagate rays through the illuminated cell
+            self.drawPropagationToCellWall(position, cell, viewMesh,
+                                           VIEW_VOXELIZATION_TAG)
+
+    def drawRayPropagationInCell(self, ray, cell, tag):
+        # Compute the intersection of `ray` with two (presumably)
+        # of `cell`'s walls.
+        intersections = ray.intersectsPolygon(cell.polygon)
+        if intersections:
+            blockingIntersections = ray.intersectsPolygon(
+                    self.blockingPolygon)
+            if len(intersections) == 1:
+                if blockingIntersections:
+                    if blockingIntersections[0].t <= intersections[0].t:
+                        self.drawArrow(intersections[0].p,
+                                       blockingIntersections[0].p,
+                                       tag=tag)
+                    if blockingIntersections[1].t <= intersections[0].t:
+                        self.drawLine(blockingIntersections[1].p,
+                                      intersections[0].p,
+                                      fill=BLOCKED_RAY_COLOR,
+                                      tag=tag)
+                    if intersections[0].t <= blockingIntersections[0].t:
+                        self.drawArrow(ray.o,
+                                       intersections[0].p,
+                                       tag=tag)
+                else:
+                    self.drawArrow(ray.o,
+                                   intersections[0].p,
+                                   tag=tag)
+            else:
+                assert len(intersections) == 2
+                if blockingIntersections:
+                    if (intersections[0].t <= blockingIntersections[0].t
+                             <= intersections[1].t):
+                        self.drawArrow(intersections[0].p,
+                                       blockingIntersections[0].p,
+                                       tag=tag)
+                    if (intersections[0].t <= blockingIntersections[1].t
+                             <= intersections[1].t):
+                        self.drawLine(blockingIntersections[1].p,
+                                      intersections[1].p,
+                                      fill=BLOCKED_RAY_COLOR,
+                                      tag=tag)
+                    if blockingIntersections[1].t <= intersections[1].t:
+                        self.drawLine(blockingIntersections[1].p,
+                                      intersections[1].p,
+                                      fill=BLOCKED_RAY_COLOR,
+                                      tag=tag)
+                else:
+                    self.drawArrow(intersections[0].p,
+                                   intersections[1].p,
+                                   tag=tag)
+
+    def drawPropagationToCellWall(self, position, cell, destinationWall, tag):
         for destinationPoint in destinationWall.samplePoints:
             o = position
             d = normalize(destinationPoint - o)
             ray = Ray(o, d)
-
-            # Compute the intersection of `ray` with two (presumably)
-            # of `cell`'s walls.
-            intersections = ray.intersectsPolygon(cell.polygon)
-            if intersections:
-                blockingIntersections = ray.intersectsPolygon(
-                        self.blockingPolygon)
-                if len(intersections) == 1:
-                    if blockingIntersections:
-                        if blockingIntersections[0].t <= intersections[0].t:
-                            self.drawArrow(intersections[0].p,
-                                           blockingIntersections[0].p,
-                                           tag=tag)
-                        if blockingIntersections[1].t <= intersections[0].t:
-                            self.drawLine(blockingIntersections[1].p,
-                                          intersections[0].p,
-                                          fill=BLOCKED_RAY_COLOR,
-                                          tag=tag)
-                        if intersections[0].t <= blockingIntersections[0].t:
-                            self.drawArrow(position,
-                                           intersections[0].p,
-                                           tag=tag)
-                    else:
-                        self.drawArrow(position,
-                                       intersections[0].p,
-                                       tag=tag)
-                else:
-                    assert len(intersections) == 2
-                    if blockingIntersections:
-                        if (intersections[0].t <= blockingIntersections[0].t
-                                 <= intersections[1].t):
-                            self.drawArrow(intersections[0].p,
-                                           blockingIntersections[0].p,
-                                           tag=tag)
-                        if (intersections[0].t <= blockingIntersections[1].t
-                                 <= intersections[1].t):
-                            self.drawLine(blockingIntersections[1].p,
-                                          intersections[1].p,
-                                          fill=BLOCKED_RAY_COLOR,
-                                          tag=tag)
-                        if blockingIntersections[1].t <= intersections[1].t:
-                            self.drawLine(blockingIntersections[1].p,
-                                          intersections[1].p,
-                                          fill=BLOCKED_RAY_COLOR,
-                                          tag=tag)
-                    else:
-                        self.drawArrow(intersections[0].p,
-                                       intersections[1].p,
-                                       tag=tag)
+            self.drawRayPropagationInCell(ray, cell, tag)
 
     def drawRay(self, ray, **kwargs):
         edgePoint = None
@@ -498,6 +528,18 @@ class LmpropCanvas(ApplicationCanvas):
         else:
             self.itemconfigure(RAYTRACE_TAG, state=tk.HIDDEN)
 
+    def setLightVoxelizationVisibility(self, isVisible):
+        if isVisible:
+            self.itemconfigure(LIGHT_VOXELIZATION_TAG, state=tk.NORMAL)
+        else:
+            self.itemconfigure(LIGHT_VOXELIZATION_TAG, state=tk.HIDDEN)
+
+    def setViewVoxelizationVisibility(self, isVisible):
+        if isVisible:
+            self.itemconfigure(VIEW_VOXELIZATION_TAG, state=tk.NORMAL)
+        else:
+            self.itemconfigure(VIEW_VOXELIZATION_TAG, state=tk.HIDDEN)
+
     def setVoxelizationVisibility(self, isVisible):
         if isVisible:
             self.itemconfigure(VOXELIZATION_TAG, state=tk.NORMAL)
@@ -517,9 +559,8 @@ class LmpropCanvas(ApplicationCanvas):
 
 def main():
     root = tk.Tk()
-    root.bind("q", lambda event: root.quit())
 
-    application = Application(root,
+    application = Application(root, root,
                               nCellRows = 2,
                               nCellColumns = 3)
     application.grid(row=0, column=0)

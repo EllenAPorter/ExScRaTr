@@ -14,8 +14,7 @@ clean:
 	    _region_.tex $(GENFILES) *~
 
 immaculate: clean
-	# if we decide not to keep PDF's under git
-	# rm -f $(DOCNAME).pdf
+	rm -f $(DOCNAME).pdf
 
 preview: $(DOCNAME).pdf
 	$(PDF_PREVIEW) $<
