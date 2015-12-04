@@ -1,0 +1,55 @@
+\documentclass[12pt]{article}
+\textwidth=7in
+\textheight=9.5in
+\topmargin=-1in
+\headheight=0in
+\headsep=.5in
+\hoffset  -.85in
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{setspace}
+\usepackage{array}
+\usepackage{hyperref}
+
+
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+\pagestyle{empty}
+
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\begin{document}
+
+\textbf{\\Title: White Paper on exascale ray tracing.}\\
+
+\textbf {\\ Introduction} \\
+
+The problem:  As we approach exascale computing the amount of data we are producing will increase significantly.  HPC application users and developers will want to visualize and understand the result produced by their codes and we will need visualization algorithms that can keep up.
+
+\textbf {\\ Background} \\
+
+Ray tracing is a common algorithm used to produce realistic visualizations of data.  Some ray tracing plugins have been brought into commonly used visualization packages such as ViSiT and ParaView, but most attempts have been slow as they do not take advantage of distributed systems.  
+
+\textbf {\\ Solution} \\
+
+We propose the development of a generic task based ray tracer that will run on today’s hardware as well as tomorrows exascale machines, this module can then be integrated into any visualization software of a user’s choosing. 
+
+\textbf {\\ Step 1} \\
+
+As ray tracing is not novel or new to the field of graphics and visualization, we will implement a system that builds on top of one of the highly optimized ray tracing kernels: Intel’s embree.
+\\ This can later be extended to work on GPU’s by integrating with NVidias Optix
+
+\textbf {\\ Step 2} \\
+
+As we move to exascale we will see a shift in programming models away from classical MPI applications and towards tasks based systems.  We will therefore use a task based interface to build our system that will work on today’s architecture as well as next generation.
+
+\textbf {\\ Step 3} \\
+
+With the base system in place, we will then extend our work to optimize the impact this particular library will have.  This will include working towards global illumination as well as support for multiple displays showing different portions of a given dataset.
+
+\textbf {\\ Conclusion} \\
+
+We hope that with the coming of exascale, full ray tracing and full global illumination of large data sets will be possible as this will produce the most realistic and accurate renditions of the data.  Although we do not have exascale architectures available yet, we propose to produce a model that will work sufficiently at today’s petascale as well as future systems.
+
+\end{document}
