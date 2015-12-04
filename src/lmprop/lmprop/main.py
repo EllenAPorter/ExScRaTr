@@ -48,8 +48,10 @@ VOXELIZATION_VIEW_MODE = "Voxelization"
 LIGHT_VOXELIZATION_VIEW_MODE = "Voxelized Light Propagation"
 VIEW_VOXELIZATION_VIEW_MODE = "Voxelized View Propagation"
         
-
 ITEM_LABEL_FONT = ('Times', 14)
+
+# The length of drawn arrows (in pixels).
+ARROW_LENGTH = 15
 
 class Application(tk.Frame):
 
@@ -121,31 +123,38 @@ class Application(tk.Frame):
 
     def setViewMode(self, viewMode):
         self.viewModeVar.set(viewMode)
+        # In what follows, it's important to turn visibilities off
+        # before turning them on so that multiple tags for the same
+        # primitive work properly.
         if viewMode == SCENE_ONLY_VIEW_MODE:
             self.lmpropCanvas.setRaytraceVisibility(False)
             self.lmpropCanvas.setVoxelizationVisibility(False)
             self.lmpropCanvas.setLightVoxelizationVisibility(False)
             self.lmpropCanvas.setViewVoxelizationVisibility(False)
         elif viewMode == RAYTRACE_VIEW_MODE:
-            self.lmpropCanvas.setRaytraceVisibility(True)
             self.lmpropCanvas.setVoxelizationVisibility(False)
             self.lmpropCanvas.setLightVoxelizationVisibility(False)
             self.lmpropCanvas.setViewVoxelizationVisibility(False)
+            # note comment above
+            self.lmpropCanvas.setRaytraceVisibility(True)
         elif viewMode == VOXELIZATION_VIEW_MODE:
             self.lmpropCanvas.setRaytraceVisibility(False)
-            self.lmpropCanvas.setVoxelizationVisibility(True)
             self.lmpropCanvas.setLightVoxelizationVisibility(False)
             self.lmpropCanvas.setViewVoxelizationVisibility(False)
+            # note comment above
+            self.lmpropCanvas.setVoxelizationVisibility(True)
         elif viewMode == LIGHT_VOXELIZATION_VIEW_MODE:
             self.lmpropCanvas.setRaytraceVisibility(False)
+            self.lmpropCanvas.setViewVoxelizationVisibility(False)
+            # note comment above
             self.lmpropCanvas.setVoxelizationVisibility(True)
             self.lmpropCanvas.setLightVoxelizationVisibility(True)
-            self.lmpropCanvas.setViewVoxelizationVisibility(False)
         else:
             assert viewMode == VIEW_VOXELIZATION_VIEW_MODE
             self.lmpropCanvas.setRaytraceVisibility(False)
-            self.lmpropCanvas.setVoxelizationVisibility(True)
             self.lmpropCanvas.setLightVoxelizationVisibility(False)
+            # note comment above
+            self.lmpropCanvas.setVoxelizationVisibility(True)
             self.lmpropCanvas.setViewVoxelizationVisibility(True)
 
     def onViewMode(self):
@@ -165,7 +174,7 @@ class ApplicationCanvas(tk.Canvas):
     def drawArrow(self, p0, p1, **kwargs):
         if 'width' not in kwargs:
             kwargs['width'] = LINE_WIDTH
-        d = 15 * normalize(p1 - p0)
+        d = ARROW_LENGTH * normalize(p1 - p0)
         dPerp = np.array((d[1], -d[0]))
         polygon = ( p1,
                     p1 - d - dPerp/4,
@@ -221,14 +230,14 @@ class Cell:
     WALL_MESH_RESOLUTION = 9
     INSET = LINE_WIDTH  # distinguish cell walls
 
-    def __init__(self, lmpropCanvas, i, j, **kwargs):
-        self.lmpropCanvas = lmpropCanvas
+    def __init__(self, canvas, i, j, **kwargs):
+        self.canvas = canvas
         insetVector = np.array((Cell.INSET, Cell.INSET))
-        pUL = lmpropCanvas.xyPosition(j,   i  ) + insetVector
-        pLR = lmpropCanvas.xyPosition(j+1, i+1) - insetVector
+        pUL = canvas.xyPosition(j,   i  ) + insetVector
+        pLR = canvas.xyPosition(j+1, i+1) - insetVector
         self.walls = []
         self.polygon = np.array(
-            (pUL,
+            (pUL, 
              (pUL[0], pLR[1]),
              pLR,
              (pLR[0], pUL[1])))
@@ -236,9 +245,9 @@ class Cell:
             wall = Wall(self, k, self.polygon[k], self.polygon[(k+1) % 4])
             self.walls.append(wall)
 
-        self.backgroundId = self.lmpropCanvas.drawRectangle(pUL, pLR, **kwargs)
+        self.backgroundId = self.canvas.drawRectangle(pUL, pLR, **kwargs)
 
-        popupMenu = tk.Menu(self.lmpropCanvas, tearoff=0)
+        popupMenu = tk.Menu(self.canvas, tearoff=0)
         popupMenu.add_checkbutton(label="Toggle Highlight",
                                   onvalue=True, offvalue=False,
                                   command=self.onToggleHighlight)
@@ -252,7 +261,7 @@ class Cell:
             finally:
                 popupMenu.grab_release()
 
-        self.lmpropCanvas.tag_bind(self.backgroundId, '<Button-3>',
+        self.canvas.tag_bind(self.backgroundId, '<Button-3>',
                                    onPopupBackground)
 
         self.highlight = False
@@ -263,7 +272,7 @@ class Cell:
         self.setHighlight()
 
     def setHighlight(self):
-        self.lmpropCanvas.itemconfigure(self.backgroundId,
+        self.canvas.itemconfigure(self.backgroundId,
              fill=BACKGROUND_HIGHLIGHT_COLOR if self.highlight
                   else BACKGROUND_NORMAL_COLOR)
 
@@ -274,6 +283,7 @@ class LmpropCanvas(ApplicationCanvas):
 
     CELL_ARRAY_OFFSET = 30 # allow for row and column labels
     LIGHT_RADIUS = 10
+
     cellAtRowColumn = {}
 
     def __init__(self, parent, nCellRows, nCellColumns, viewPosition):
@@ -293,7 +303,7 @@ class LmpropCanvas(ApplicationCanvas):
             (self.width - Cell.INSET, self.height - Cell.INSET),
             (self.width - Cell.INSET, Cell.INSET))
 
-        self.cells = self.drawCells()
+        self.cells = self.drawVoxelization()
 
         self.lightPosition = self.xyPosition(0.2, 0.3)
 
@@ -304,6 +314,7 @@ class LmpropCanvas(ApplicationCanvas):
         illuminatedCell = LmpropCanvas.cellAtRowColumn[
             self.nCellRows-1, self.nCellColumns-1]
         self.drawLightRayPropagation(self.lightPosition, illuminatedCell)
+        self.drawIncidentLightMesh(illuminatedCell, self.blockingPolygon)
 
         self.drawPolygon(self.blockingPolygon, fill=BLOCKING_POLYGON_COLOR,
                          outline='black', width=1)
@@ -348,26 +359,19 @@ class LmpropCanvas(ApplicationCanvas):
         self.setRaytraceVisibility(False)
         self.setViewVoxelizationVisibility(False)
             
-    def drawCells(self):
-        cells = []
-        for i in range(self.nCellRows):
-            for j in range(self.nCellColumns):
-                cell = Cell(self, i, j, tag=VOXELIZATION_TAG)
-                self.cellAtRowColumn[i, j] = cell
-                cells.append(cell)
-        for j in range(self.nCellColumns):
-            self.drawText(((j + 0.5) * Cell.SIZE
-                           + LmpropCanvas.CELL_ARRAY_OFFSET,
-                           0.5 * LmpropCanvas.CELL_ARRAY_OFFSET),
-                          "{}".format(j), font=("Times", 16),
-                          tag=VOXELIZATION_TAG)
-        for i in range(self.nCellColumns):
-            self.drawText((0.5 * LmpropCanvas.CELL_ARRAY_OFFSET,
-                          (i + 0.5) * Cell.SIZE
-                           + LmpropCanvas.CELL_ARRAY_OFFSET),
-                          "{}".format(i), font=("Times", 16),
-                          tag=VOXELIZATION_TAG)
-        return cells
+    def drawIncidentLightMesh(self, cell, blockingPolygon):
+        for wall in cell.walls:
+            for p in wall.samplePoints:
+                uFromLight = normalize(p - self.lightPosition)
+                if np.dot(wall.normal, uFromLight) <= 0:
+                    continue
+                ray = Ray(self.lightPosition, uFromLight)
+                kwargs = { 'tag': (LIGHT_VOXELIZATION_TAG,
+                                   VIEW_VOXELIZATION_TAG) } 
+                if ray.intersectsPolygon(blockingPolygon):
+                    kwargs['fill'] = BLOCKED_RAY_COLOR
+                # This wall (point) may be receiving light from the source.
+                self.drawArrow(p, p + 2 * ARROW_LENGTH * uFromLight, **kwargs) 
 
     def drawLightRayPropagation(self, position, illuminatedCell):
         for cell in self.cells:
@@ -378,13 +382,6 @@ class LmpropCanvas(ApplicationCanvas):
                 if np.dot(p - position, n) > 0:
                     self.drawPropagationToCellWall(position, cell, wall,
                                                    LIGHT_VOXELIZATION_TAG)
-
-    def drawViewRayPropagation(self, position, viewMesh, illuminatedCell):
-        for cell in self.cells:
-            if cell == illuminatedCell:
-                continue # don't propagate rays through the illuminated cell
-            self.drawPropagationToCellWall(position, cell, viewMesh,
-                                           VIEW_VOXELIZATION_TAG)
 
     def drawRayPropagationInCell(self, ray, cell, tag):
         # Compute the intersection of `ray` with two (presumably)
@@ -443,7 +440,7 @@ class LmpropCanvas(ApplicationCanvas):
             ray = Ray(o, d)
             self.drawRayPropagationInCell(ray, cell, tag)
 
-    def drawRay(self, ray, **kwargs):
+    def drawRayToCanvasBoundary(self, ray, **kwargs):
         edgePoint = None
         for i in range(4):
             p0 = self.corners[i]
@@ -456,22 +453,6 @@ class LmpropCanvas(ApplicationCanvas):
                     edgePoint = intersection.p
         if edgePoint is not None:
             self.drawArrow(ray.o, edgePoint, **kwargs)
-
-    def getViewMesh(self, viewPosition, viewDirection, fovDeg):
-        d = mag(viewDirection)
-        imageCenter = viewPosition + viewDirection
-        normalizedViewDirection = normalize(viewDirection)
-
-        # perpendicular to the view direction
-        normalizedViewDirectionPerp = normalize(
-            np.array((viewDirection[1], -viewDirection[0])))
-
-        fov = fovDeg * np.pi / 180
-        halfW = d * np.tan(fov/2)
-
-        p0 = imageCenter + halfW * normalizedViewDirectionPerp
-        p1 = imageCenter - halfW * normalizedViewDirectionPerp
-        return Mesh(p0, p1, 7)
 
     def drawRaytrace(self, viewPosition, viewDirection, fovDeg):
         viewMesh = self.getViewMesh(viewPosition, viewDirection, fovDeg)
@@ -515,12 +496,56 @@ class LmpropCanvas(ApplicationCanvas):
                                    endPoint,
                                    tag=RAYTRACE_TAG)
             else:
-                self.drawRay(viewRay, tag=RAYTRACE_TAG)
+                self.drawRayToCanvasBoundary(viewRay, tag=RAYTRACE_TAG)
                 self.drawPolygon(pixelPolygon, fill=MISSED_PIXEL_COLOR,
                                  outline='black', width=1)
 
         self.drawText(imageCenter + np.array((0, 80)),
                   "image", font=ITEM_LABEL_FONT, justify=tk.CENTER)
+
+    def drawViewRayPropagation(self, position, viewMesh, illuminatedCell):
+        for cell in self.cells:
+            if cell == illuminatedCell:
+                continue # don't propagate rays through the illuminated cell
+            self.drawPropagationToCellWall(position, cell, viewMesh,
+                                           VIEW_VOXELIZATION_TAG)
+
+    def drawVoxelization(self):
+        cells = []
+        for i in range(self.nCellRows):
+            for j in range(self.nCellColumns):
+                cell = Cell(self, i, j, tag=VOXELIZATION_TAG)
+                self.cellAtRowColumn[i, j] = cell
+                cells.append(cell)
+        for j in range(self.nCellColumns):
+            self.drawText(((j + 0.5) * Cell.SIZE
+                           + LmpropCanvas.CELL_ARRAY_OFFSET,
+                           0.5 * LmpropCanvas.CELL_ARRAY_OFFSET),
+                          "{}".format(j), font=("Times", 16),
+                          tag=VOXELIZATION_TAG)
+        for i in range(self.nCellColumns):
+            self.drawText((0.5 * LmpropCanvas.CELL_ARRAY_OFFSET,
+                          (i + 0.5) * Cell.SIZE
+                           + LmpropCanvas.CELL_ARRAY_OFFSET),
+                          "{}".format(i), font=("Times", 16),
+                          tag=VOXELIZATION_TAG)
+        return cells
+
+    def getViewMesh(self, viewPosition, viewDirection, fovDeg):
+        d = mag(viewDirection)
+        imageCenter = viewPosition + viewDirection
+        normalizedViewDirection = normalize(viewDirection)
+
+        # perpendicular to the view direction
+        normalizedViewDirectionPerp = normalize(
+            np.array((viewDirection[1], -viewDirection[0])))
+
+        fov = fovDeg * np.pi / 180
+        halfW = d * np.tan(fov/2)
+
+        p0 = imageCenter + halfW * normalizedViewDirectionPerp
+        p1 = imageCenter - halfW * normalizedViewDirectionPerp
+        return Mesh(p0, p1, 7)
 
     def setRaytraceVisibility(self, isVisible):
         if isVisible:
@@ -559,6 +584,7 @@ class LmpropCanvas(ApplicationCanvas):
 
 def main():
     root = tk.Tk()
+    root.title("Light Mesh Propagation Visualizer")
 
     application = Application(root, root,
                               nCellRows = 2,
