@@ -21,35 +21,36 @@
 \renewcommand{\thefootnote}{\fnsymbol{footnote}}
 \begin{document}
 
-\textbf{\\Title: White Paper on exascale ray tracing.}\\
+\textbf{\\Exascale ray tracing; a white paper}\\
 
 \textbf {\\ Introduction} \\
 
-The problem:  As we approach exascale computing the amount of data we are producing will increase significantly.  HPC application users and developers will want to visualize and understand the result produced by their codes and we will need visualization algorithms that can keep up.
+Scaling applications to exascale is a task that will take significant programming effort.  The extent of that effort has been explored as part of the Traleika Glacier X-Stack project funded under Department of Energy Award Number DE-SC0008717.  Conclusions from that project suggest that at exascale we will see a shift in programming models away from traditional “machine-level” parallel computing models, such as MPI or MPI+OpemMP, and towards a high level task based programming models that relies more heavily on the runtime for optimization.  We are currently looking at the implications of this shift in a ray tracing algorithm. \\
 
-\textbf {\\ Background} \\
+Ray tracing is a common algorithm used to produce realistic visualizations of data.  The core path tracing algorithm can also be extended to particle system applications.  Just focusing on the visualization aspect, we see ray tracing libraries developed as plugins for core HPC visualization tools such as VisIt and ParaView.  Manta developed at the University of Utah and pvOSPRay developed by the Texas Advanced Computing Center are two commonly used plugins.  Both of these plugins work on current distributed systems but based on the algorithm design will not scale to exascale.
 
-Ray tracing is a common algorithm used to produce realistic visualizations of data.  Some ray tracing plugins have been brought into commonly used visualization packages such as ViSiT and ParaView, but most attempts have been slow as they do not take advantage of distributed systems.  
+\textbf {\\ Proposed effort} \\
+
+We propose the development of a generic task based ray tracer that will run on both todays hardware and tomorrows exascale machines, this module can then be integrated into any visualization software of a user’s choosing.
 
 \textbf {\\ Solution} \\
 
-We propose the development of a generic task based ray tracer that will run on todayâ€™s hardware as well as tomorrows exascale machines, this module can then be integrated into any visualization software of a userâ€™s choosing. 
+We propose the development of a generic task based ray tracer that will run on today’s hardware as well as tomorrows exascale machines, this module can then be integrated into any visualization software of a user’s choosing. 
 
-\textbf {\\ Step 1} \\
+\textbf {\\ Phase 1: implementation} \\
 
-As ray tracing is not novel or new to the field of graphics and visualization, we will implement a system that builds on top of one of the highly optimized ray tracing kernels: Intelâ€™s embree.
-\\ This can later be extended to work on GPUâ€™s by integrating with NVidias Optix
+As ray tracing in general is not a new field we will implement a system that takes advantage of existing highly optimized ray tracing engines.  We will integrate first with Intel’s ray tracing library, Embree, this is the same kernel being used by pvOSPRay and has been optimized for several intel chips including Xeon Phi.  Future work may include integrating with OptiX, NVidia’s ray tracing kernel to run on GPUs as well as extending the algorithm to dynamically choose at runtime which library or libraries to used based on the current runtime system.
 
-\textbf {\\ Step 2} \\
+\textbf {\\ Phase 2: adapting to task based systems} \\
 
-As we move to exascale we will see a shift in programming models away from classical MPI applications and towards tasks based systems.  We will therefore use a task based interface to build our system that will work on todayâ€™s architecture as well as next generation.
+As with other applications, the shift towards exascale will take us towards task based programming models and change the underlying hardware.  This has implications on ray tracing and is what we will explore in the second phase of our work.  For example, many existing distributed ray tracers work by duplicating input data across nodes.  As the size of memory per node is projected to decline significantly at exascale, this key design assumption will hinder current algorithms performance.  We will therefore redesign the current algorithms and implement a solution using Intel CnC, a task based model, that will perform on today’s architecture as well as next generation.  
 
-\textbf {\\ Step 3} \\
+\textbf {\\ Phase 3: library extensions} \\
 
-With the base system in place, we will then extend our work to optimize the impact this particular library will have.  This will include working towards global illumination as well as support for multiple displays showing different portions of a given dataset.
+With the base system in place we then plan to extend our work in two key ways; optimizing performance and increasing impact.  On many proposed task based programming models, including CnC, a separate input file can be provided to the runtime to provide hints for scheduling and data movement to increase performance.  We would like to implement and test this tuning specification on different systems to determine the usefulness and necessity for ray tracing algorithms.  Finally we would like to extend our work towards more ray tracing functionality such as global illumination, support for multiple displays, and virtual reality headsets.
 
 \textbf {\\ Conclusion} \\
 
-We hope that with the coming of exascale, full ray tracing and full global illumination of large data sets will be possible as this will produce the most realistic and accurate renditions of the data.  Although we do not have exascale architectures available yet, we propose to produce a model that will work sufficiently at todayâ€™s petascale as well as future systems.
+We hope that with the coming of exascale, full ray tracing and full global illumination of large data sets will be efficient enough to be used for everyday data visualization.  Although we do not have exascale architectures available yet, we propose to produce a model that will work sufficiently at on today’s distributed systems as well as future systems.
 
 \end{document}
