@@ -1,4 +1,3 @@
-import PIL.Image as pilImage
 import tkinter as tk
 import tkinter.filedialog as tkfd
 import numpy as np
@@ -251,9 +250,6 @@ class Cell:
         popupMenu.add_checkbutton(label="Toggle Highlight",
                                   onvalue=True, offvalue=False,
                                   command=self.onToggleHighlight)
-        popupMenu.add_checkbutton(label="Show Propagation",
-                                  onvalue=True, offvalue=False,
-                                  command=self.onToggleHighlight)
 
         def onPopupBackground(evt):
             try:
@@ -339,6 +335,7 @@ class LmpropCanvas(ApplicationCanvas):
                          fill=TARGET_POLYGON_COLOR, outline='black', width=1)
 
         self.drawRaytrace(viewPosition, viewDirection, fovDeg=fovDeg)
+        self.drawRayViewInteraction(illuminatedCell, viewPosition, viewMesh)
 
         self.drawCircle(self.lightPosition,
                         LmpropCanvas.LIGHT_RADIUS, fill=LIGHT_COLOR)
@@ -371,7 +368,8 @@ class LmpropCanvas(ApplicationCanvas):
                 if ray.intersectsPolygon(blockingPolygon):
                     kwargs['fill'] = BLOCKED_RAY_COLOR
                 # This wall (point) may be receiving light from the source.
-                self.drawArrow(p, p + 2 * ARROW_LENGTH * uFromLight, **kwargs) 
+                self.drawArrow(p, p + 1.5 * ARROW_LENGTH * uFromLight,
+                               **kwargs) 
 
     def drawLightRayPropagation(self, position, illuminatedCell):
         for cell in self.cells:
@@ -382,6 +380,38 @@ class LmpropCanvas(ApplicationCanvas):
                 if np.dot(p - position, n) > 0:
                     self.drawPropagationToCellWall(position, cell, wall,
                                                    LIGHT_VOXELIZATION_TAG)
+    def drawPropagationToCellWall(self, position, cell, destinationWall, tag):
+        for destinationPoint in destinationWall.samplePoints:
+            o = position
+            d = normalize(destinationPoint - o)
+            ray = Ray(o, d)
+            self.drawRayPropagationInCell(ray, cell, tag)
+
+    def drawRayViewInteraction(self, cell, viewPosition, viewMesh):
+        for samplePoint in viewMesh.samplePoints:
+            # arrow from cell wall to intersection point
+            viewRay = Ray(viewPosition, samplePoint - viewPosition)
+            cellViewIntersections = viewRay.intersectsPolygon(cell.polygon)
+            if not cellViewIntersections:
+                continue
+            targetIntersections = viewRay.intersectsPolygon(self.targetPolygon)
+            if not targetIntersections:
+                continue
+            self.drawArrow(cellViewIntersections[0].p,
+                           targetIntersections[0].p,
+                           tag=VIEW_VOXELIZATION_TAG)
+
+            # arrow from intersection point to cell wall (may be blocked)
+            lightRay = Ray(targetIntersections[0].p,
+                           self.lightPosition - targetIntersections[0].p)
+            cellLightIntersections = lightRay.intersectsPolygon(cell.polygon)
+            assert cellLightIntersections # sanity check: should never be empty
+            kwargs = { 'tag': VIEW_VOXELIZATION_TAG }
+            if lightRay.intersectsPolygon(self.blockingPolygon):
+                kwargs['fill'] = BLOCKED_RAY_COLOR
+            self.drawArrow(targetIntersections[0].p,
+                           cellLightIntersections[0].p,
+                           **kwargs)
 
     def drawRayPropagationInCell(self, ray, cell, tag):
         # Compute the intersection of `ray` with two (presumably)
@@ -432,13 +462,6 @@ class LmpropCanvas(ApplicationCanvas):
                     self.drawArrow(intersections[0].p,
                                    intersections[1].p,
                                    tag=tag)
-
-    def drawPropagationToCellWall(self, position, cell, destinationWall, tag):
-        for destinationPoint in destinationWall.samplePoints:
-            o = position
-            d = normalize(destinationPoint - o)
-            ray = Ray(o, d)
-            self.drawRayPropagationInCell(ray, cell, tag)
 
     def drawRayToCanvasBoundary(self, ray, **kwargs):
         edgePoint = None
