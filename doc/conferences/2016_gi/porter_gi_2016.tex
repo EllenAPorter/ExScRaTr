@@ -50,7 +50,7 @@
 
 %% Paper title.
 
-\title{An approach for Ray Tracing on Exascale Computers}
+\title{An Prospective Approach to Ray Tracing on Exascale Computers}
 
 %% This is how authors are specified in the conference style
 
@@ -85,11 +85,18 @@
 %  \caption{Lookit! Lookit!}
 %}
 
-%% Abstract section.
-\abstract{
-Exascale computers, defined as being capable of performing at least one exaflop ($10^{18}$ floating point operations per second) are anticipated to emerge in the next several years.  Reaching this scale of computation will require significant hardware and software changes for high-performance computing (HPC).  Applications will need to adapt as the architecture of supercomputers change.  In this paper we explore those changes and the impact they will have on programming models and application design.  We then  look at one specific model, the Concurrent Collections Programming Model (CnC) and explore how we can use CnC and Intel's Embree Ray Tracing Engine to build a scalable ray tracing system ready for exascale.
-
-} % end of abstract
+\abstract{ % 
+  Exascale computers, defined as being capable of performing at least %
+  one exaflop ($10^{18}$ floating point operations per second) are
+  anticipated to emerge in the next several years. Reaching this scale
+  of computation will require significant hardware and software
+  changes for high-performance computing (HPC). In this paper we
+  explore those changes and the impact they will have on programming
+  models and application design. We then look at one specific model,
+  the Concurrent Collections Programming Model (CnC) and explore how
+  we can use CnC and Intel's Embree Ray Tracing Engine to build a
+  scalable ray tracing system ready for exascale.
+}
 
 %% ACM Computing Classification System (CCS). 
 %% See <http://www.acm.org/class/1998/> for details.
@@ -122,63 +129,217 @@ Exascale computers, defined as being capable of performing at least one exaflop 
 
 %% \section{Introduction} 
 
-Achieving the performance expected from an exascale computer will require modifications to current hardware architecture which will in turn affect programming models and runtime design.  Until recent years, performance has increased in line with Moore's law, the number of transistors within an integrated circuit doubled approximately every two years.  As we reached a limit on the number of transistors a single chip could contain, hardware architects had to look for other ways to keep up with performance advancement expectations.  In order to take advantage of these hardware advances applications often required redesign. 
+Exascale computers, by definition capable of performing at least one
+exaflop ($10^{18}$ floating point operations per second), are
+anticipated by 2018.
+% RRL: add citation
+This will be several orders of magnitude greater than the fastest computers
+currently available. Expectations will be high that software running on these computers will scale similarly.
+Experience has shown, however, that such improvements will not be
+achievable without similarly dramatic innovations in software,
+particularly programming models and runtime design.
 
-In addition to the changing algorithms, the data produced as output from high-performance computing (HPC) applications tends to scale in size with compute power.  This has produced a need for visualization algorithms that can take advantage of distributed systems as well as an opportunity to design algorithms that can be integrated into HPC applications to produce results during execution.  This paper proposes one such design for ray tracing, a commonly used rendering technique, using the Intel Concurrent Collections (CnC) programming model.   
+Until recent years, application performance has increased in
+correspondence with Moore's law (which is not so much a law as an
+observation): the number of transistors within an integrated circuit
+doubled approximately every two years. As we reached a limit on the
+number of transistors a single core could contain, hardware architects
+had to look for other ways to keep up with performance advancement
+expectations. The most common solution today is multiple cores per
+chip. In order to take advantage of these hardware advances,
+applications often require redesign.
 
+In addition to the changing software architectures, the amount of
+output data expected from high-performance computing (HPC)
+applications also scales with compute power: larger computers are
+expected to manage larger amounts of data. An additional expectation
+is that of ``real time'', dynamic display of data.
+
+These demands have produced a need for rendering and visualization
+systems which can take advantage of distributed systems. These systems
+may be stand-alone or they may add functionality to existing HPC
+applications. This paper proposes one such system for ray tracing, a
+commonly-used rendering technique, using the Intel Concurrent
+Collections (CnC) programming model. Although CnC runs on current
+distrbuted hardware, it is ultimately intended for use on exascale
+computers.
 
 \section{Reaching Exascale}
 
-For the past two decades high performance computing (HPC) progression has been driven by Moore's law which states microprocessor performance and memory chip density increase exponentially over time.  Until 2004, performance of single-core microprocessors increased as predicted as a result of smaller and faster transistors being developed.  In 2004 this advancement trend shifted as we reached an inflection point caused by a chip’s power dissipation ~\cite{kogge2013exascale}.  Unable to sufficiently and inexpensively cool a chip, chip designers looked for other ways to increase performance.  This came in the form of multi-core processors which are now the building blocks of many HPC systems.
+For the past two decades high performance computing (HPC) progression
+has been driven by Moore's law. Until 2004, performance of single-core
+microprocessors increased as predicted as a result of smaller and
+faster transistors being developed. In 2004, this advancement trend
+shifted as we reached an inflection point caused by a chip’s power
+dissipation ~\cite{kogge2013exascale}. Unable to sufficiently and
+inexpensively cool a chip, chip designers looked for other ways to
+increase performance. This came in the form of multi-core processors
+which are now the building blocks of many HPC systems.
 
-The introduction of multi-core processors on a single node of a cluster caused a shift in parallel application design.  Message Passing Interface (MPI) programs could not exploit the parallelism on a single node without a rewrite of the underlying algorithms.  This resulted in the emergence of hybrid systems that mix MPI and OpenMP, each node executing an OpenMP program being controled by an MPI process.  The OpenMP program then uses a fixed number of threads to execute a single work-sharing construct such as a parallel loop ~\cite{gropp2013programming}.
+The introduction of multi-core processors on a single node of a
+cluster caused a shift in parallel application design. Programs using
+the standard Message Passing Interface (MPI) library
+~\cite{Snir:1998:MCR:552013} could not exploit parallelism on a single
+node without a rewrite of the underlying algorithms. This resulted in
+the emergence of hybrid systems that mix MPI and the Open
+Multi-Processing (OpenMP) ~\cite{openmp08} libraries. OpenMP being
+designed for shared memory multiprocessors, each node would execute an
+OpenMP program controlled overall by MPI using a fixed number of
+threads to execute a single work-sharing construct such as a parallel
+loop ~\cite{gropp2013programming}.
 
-As we look towards the next generation of HPC systems a shift in application design will once again be necessary to reach exascale performance.  On-chip parallelism along with reduced data movement will be critical for an applications success.  Unfortunately, conventional language semantics will not be sufficient to exploit the architecture advances being developed such as inter-core message queues.  Therefore, new high-performance parallel programming models and smarter runtimes are being developed.  The majority of these models are data-centric rather than compute-centric, which allows the runtime scheduler to prioritize scheduling computation on nodes or cores where the required data already resides rather than the next available processor ~\cite{kogge2013exascale}.  This kind of model will reduce communication which is the predicted bottle neck for exascale systems.
+As we look towards the next generation of HPC systems a shift in
+application design will once again be necessary to reach exascale
+performance. On-chip parallelism along with reduced data movement will
+be critical for an applications success. Unfortunately, conventional
+language semantics will not be sufficient to exploit the architecture
+advances being developed such as inter-core message queues. Therefore,
+new high-performance parallel programming models and smarter runtimes
+are being developed.
 
-\section{CnC Programming Model}
+The majority of these models are data-centric rather than
+compute-centric, which allows the runtime scheduler to prioritize
+scheduling computation on nodes or cores where the required data
+already resides rather than the next available processor
+~\cite{kogge2013exascale}. This kind of model will reduce
+communication which is the predicted bottle neck for exascale systems.
 
-The Concurrent Collections Programming Model (CnC) is a data-centric programming model, the deterministic semantics of which allow a task-based runtime to programmatically exploit parallelism.  In this model, algorithms are designed based on their data dependencies and control dependencies ~\cite{budimlicconcurrent}.  The specifics regarding the execution of the algorithm is then abstracted out of the implementation.  This allows the runtime to optimally decide when and where to schedule computation.  Hints can also be provided to the runtime through a separate file called a tuning specification.  
+\section{The CnC Programming Model}
 
-The CnC model is built on three key constructs; step collections, data collections, and control collections ~\cite{budimlicconcurrent}.  A step collection defines computation, an instance of which consumes and produces data.  The consumed and produced data, or data items, belong to data collections.  Data items within a data collection are indexed using item tags.  Finally the control collection describes the prescription, or creation, of step instances.  The relationship between these three collections is defined statically in an input file called a CnC graph.
+Concurrent Collections (CnC) is one such data-centric programming
+model, the deterministic semantics of which allow a task-based runtime
+to programmatically exploit parallelism. In this model, algorithms are
+designed based on their data and control dependencies
+~\cite{budimlicconcurrent}. The specifics regarding the execution of
+the algorithm is then abstracted out of the implementation. This
+allows the runtime to optimally decide when and where to schedule
+computation. Hints can also be provided to the runtime through a
+separate file called a ``tuning specification''.
+
+The CnC model is built on three key constructs: step collections, data collections, and control collections ~\cite{budimlicconcurrent}.  A step collection defines computation, an instance of which consumes and produces data.  The consumed and produced data, or data items, belong to data collections.  Data items within a data collection are indexed using item tags.
+%% RRL: We need to say more about tags.
+Finally the control collection describes the prescription, or creation, of step instances.  The relationship between these three collections is defined statically in an input file called a ``CnC graph''.
 
 Developing a CnC application begins with designing the CnC graph file.  An algorithm is broken down into computation steps, instances of which correspond to different input arguments.  These steps along with the data collections become nodes in a graph.  Each step can optionally consume data, produce data, and prescribe additional computation.  These relationships, producer, consumer, and control, define the edges in the graph and will dynamically be satisfied as the program executes.
 
 \begin{figure*}[!htb]
   \centering
   \includegraphics[width=\textwidth]{drawings/CnC.pdf}
-  \caption{CnC graph}
+  \caption{CnC Graph.}
   \label{fig:cnc}
 \end{figure*}
+%% RRL: We need to say more about this diagram.
 
-The next and final required step in producing a CnC application is to implement the step logic.  The flow within a single CnC step is as follows: consume, compute and produce.  This ordering is required as there is no guarantee the data a step needs will be ready when the step beings executing.  Internally, CnC will attempt to retrieve the data, if it is not ready, the step will halt execution and try again later.  To improve performance, hints can be provided through the tuning specification to ensure steps are only prescribed and scheduled for execution when their required input data is ready.
+The next and final required step in producing a CnC application is to implement the step logic.  The flow within a single CnC step is as follows: consume, compute, and produce.  This ordering is required as there is no guarantee the data a step needs will be ready when the step beings executing.  Internally, CnC will attempt to retrieve the data, if it is not ready, the step will halt execution and try again later.  To improve performance, hints can be provided through the tuning specification to ensure steps are only prescribed and scheduled for execution when their required input data is ready.
+%% RRL: It seems odd that so necessary a consideration that a step
+%% needs to have its data ready before it starts running is considered
+%% ``tuning''.
 
-\section{Current Ray Tracing Algorithms}
+\section{Limitations of Current Ray Tracing Algorithms}
 
-Traditional ray tracing algorithms are embarrassingly parallel as no ray depends on any other ray.  The data needed by each individual ray however varies widely as its path is traced.   Acceleration structures, such as k-d trees have been developed to increase ray tracing performance.  As the data scales up however, it is no longer possible to store an entire data set in an acceleration structure in shared memory.  One solution is to implement data decomposition.  Each node on a distributed system is then responsible for a subset of the domain.   Primary rays and secondary rays are then communicated across nodes as the algorithm executes.  These types of models typically rely on expensive preprocessing steps that help to balance both the data distribution and rendering work evenly across nodes ~\cite{navratil2014dynamic}. 
+Traditional ray tracing algorithms are embarrassingly parallel as no
+primary ray depends on any other ray. The data needed by each
+individual ray, however, varies widely as its path is traced,
+especially as regards secondary or other rays. Acceleration
+structures, such as k-d trees have been developed to increase ray
+tracing performance. As the data scales up however, it is no longer
+possible to store an entire data set in an acceleration structure in
+shared memory.
+
+One solution is to implement data decomposition. Each node on a
+distributed system is then responsible for a subset of the domain.
+Primary rays and secondary rays are then communicated across nodes as
+the algorithm executes. These types of models typically rely on
+expensive preprocessing steps that help to balance both the data
+distribution and rendering work evenly across nodes
+~\cite{navratil2014dynamic}.
 
 \section{CnC Ray Tracing Implementation}
-Implementing ray tracing using CnC allows the algorithm to run on a distributed system and reduces the need for expensive preprocessing seen with many current systems.  This is due to the dynamic nature of CnC execution and is similar to the algorithm proposed by Navratil et al. ~\cite{navratil2014dynamic}.  The CnC implementation beings by splitting data into voxels, this data is then distributed dynamically at runtime.  The ray tracing portion of the algorithm is iterative.  Primary rays are sent into the system from the camera and then passed between neighboring voxels until all rays are fully traced.
 
-Figure \ref{fig:cnc} shows the proposed CnC graph for distributed ray tracing.  Data collections, step collections and the dependencies between them are represented in the graph.  The tags corresponding to each collection are shown within the graph node.  The control collection for the proposed model is static for all steps except trace voxel and defined in an initialization step.  The graph begins execution when the object data, light data, and camera data are provided, and terminates when it produces an image.
+Implementing ray tracing using CnC allows the algorithm to run on a
+distributed system which is planned to be extensible to exascale
+computers and reduces the need for expensive preprocessing seen with
+many current systems. This is due to the dynamic nature of CnC
+execution and is similar to the algorithm proposed by Navratil et al.
+~\cite{navratil2014dynamic}. The CnC implementation beings by
+partitioning data into voxels, this data is then distributed
+dynamically at runtime.
+%% RRL: Aren't partitioning and distibuting the same thing? You seem
+%% to be saying that the data is partitioned both before and during
+%% runtime.
+The ray tracing portion of the algorithm is
+iterative. Primary rays are sent into the system from the camera and
+may give rise to secondary rays (shadow, reflection, refraction, etc.)
+until all rays are fully traced.
+%% RRL: Not clear what we mean by ``fully traced''.
+
+Figure~\ref{fig:cnc} shows the proposed CnC graph for distributed ray
+tracing.
+%% What does the color coding mean?
+It represents data collections as ovals and step collections
+as rectangles, each with a collection tag
+%% RRL: ``collection tag'' vs. ``tag collection(s)''?
+(in upper case on its first line) and associated item tag(s) (in
+square brackets on its subsequent lines). It also shows the
+dependencies between them. The control collection for the proposed
+model is static for all steps except TRACE\_VOXEL
+%% Why?
+and defined in an initialization step. The graph begins
+execution when the object data, light data, and camera data are
+provided, and terminates when the image is produced.
+%% RRL: What if there are multiple frames?
 
 \subsection{Tag Collections}
 
-The tag collections are different for most data and step collections but share common elements.  FRAME refers to one specific frame in the case of an animation.  INSTANCE refers to the current iteration. I, J, K are iterators over spatial data, or in the case of LIGHT, the light index.
+The tag collections are different for most data and step collections
+%% RRL: Are these collections of ``item tags''
+but share common elements. FRAME refers to one specific frame in the
+case of an animation. INSTANCE refers to the current iteration.
+%% RRL: What about this algorithm is iterative?
+I, J, K are iterators over spatial data, or in the case of LIGHT, the
+light index.
+%% RRL: It's confusing to use ``I'' twice like this.
 
 \subsection{Data Collections}
 
-OBJECT\_DATA contains input data for the scene from the environment.  It is in the form of .obj.  DECOMPOSE\_DOMAIN splits this data into voxels and produces VOXEL\_OBJECT\_DATA.  Triangles that span multiple voxels are duplicated.  The LIGHT data collection contains data pertaining to any light sources.  VOXEL\_LIGHT\_DATA contains the same information as LIGHT plus a traced light mesh for each wall of a voxel.  CAMERA contains the location and direction of the camera.  RAY\_PACKET contains all the rays that intersect a voxel wall for a given wall and iteration.  IMAGE contains the final image data.
+%% RRL: It would be more consistent to either drop the ``_DATA''
+%% suffix or use it consistently.
 
+OBJECT\_DATA contains input data for the scene from the environment.
+In our case, it is in the form of a Wavefront ``\texttt{.obj}'' file.
+DECOMPOSE\_DOMAIN splits this data into voxels and produces
+VOXEL\_OBJECT\_DATA. Triangles that span multiple voxels are
+duplicated. The LIGHT data collection contains data pertaining to any
+light sources. VOXEL\_LIGHT\_DATA contains the same information as
+LIGHT plus a traced light mesh for each wall of a voxel. CAMERA
+contains the location and direction of the camera. RAY\_PACKET
+contains all the rays that intersect a voxel wall for a given wall and
+iteration. IMAGE contains the final image data.
 
 \subsection{Step Collections}
 
 \subsubsection{Decompose Domain}
 
-DECOMPOSE\_DOMAIN takes the data to be traced as input and produces subsets of that data based on voxel decomposition.  As load balancing is not a concern a fast uniformly spaced geometric distribution is sufficient.  The number of voxels produced is set at runtime and should be more than the number of nodes available.
+DECOMPOSE\_DOMAIN takes the data to be traced as input and produces
+subsets of that data based on voxel decomposition. As load balancing
+is not a concern
+% RRL: Have you adequately explained why not?
+a fast uniformly spaced geometric distribution is sufficient. The
+number of voxels produced is set at runtime and should be more than
+the number of nodes available.
 
 \subsubsection{Distribute Lights}
 
-In order to reduce communication of secondary rays, DISTRIBUTE\_LIGHTS lights is responsible for distributing light information to each voxel.  This guarantees each voxel will only need to communicate with its direct neighbors.  The light information produced for each voxel contains the original light sources as well as a light source mesh for each light and each wall of the voxel.  The mesh is produced by tracing rays from each light source to uniformly spaced points along a voxel wall.  Where the rays intersect the wall, new point light sources are created.  If the ray is blocked, the point light source will be tagged as in shadow.
+In order to reduce communication of secondary rays, DISTRIBUTE\_LIGHTS
+lights is responsible for distributing light information to each
+voxel. This guarantees each voxel will only need to communicate with
+its direct neighbors. The light information produced for each voxel
+contains the original light sources as well as a light source mesh for
+each light and each wall of the voxel. The mesh is produced by tracing
+rays from each light source to a uniform grid on a voxel wall. Where the
+rays intersect the wall, a new directional light source is created to
+light the cell. If the ray is blocked, the point light source will be
+tagged as in shadow.
 
 \begin{figure}[!htb]
 \centering
@@ -231,7 +392,10 @@ TRACE\_VOXEL is the heart of the application.  This step is iterative and prescr
 \end{figure}
 
 \subsubsection{Produce Image}
-When trace voxel has converged, a final set of ray packets will be produced.  Each ray in that packet contains the information necessary to produce the final image; merging these is the responsibility of the PRODUCE\_IMAGE step.  
+When TRACE\_VOXEL has converged, a final set of ray packets will be
+produced. Each ray in that packet contains the information necessary
+to produce the final image; merging these is the responsibility of the
+PRODUCE\_IMAGE step.
 
 \section{Future Directions}
 
