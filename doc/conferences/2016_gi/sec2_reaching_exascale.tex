@@ -1,0 +1,45 @@
+\section{Reaching Exascale}
+
+For the past two decades high performance computing (HPC) progression
+has been driven by Moore's law. Until 2004, performance of single-core
+microprocessors increased as predicted as a result of smaller and
+faster transistors being developed. In 2004, this advancement trend
+shifted as we reached an inflection point caused by a chip’s power
+dissipation ~\cite{kogge2013exascale}. Unable to sufficiently and
+inexpensively cool a chip, chip designers looked for other ways to
+increase performance. This came in the form of multi-core processors
+which are now the building blocks of many HPC systems.
+
+The introduction of multi-core processors on a single node of a
+cluster caused a shift in parallel application design. Programs using
+the standard Message Passing Interface (MPI) library
+~\cite{Snir:1998:MCR:552013} could not exploit parallelism on a single
+node without a rewrite of the underlying algorithms. This resulted in
+the emergence of hybrid systems that mix MPI and the Open
+Multi-Processing (OpenMP) ~\cite{openmp08} libraries. OpenMP being
+designed for shared memory multiprocessors, each node would execute an
+OpenMP program controlled overall by MPI using a fixed number of
+threads to execute a single work-sharing construct such as a parallel
+loop ~\cite{gropp2013programming}.
+
+As we look towards the next generation of HPC systems a shift in
+application design will once again be necessary to reach exascale
+performance. On-chip parallelism along with reduced data movement will
+be critical for an applications success. Unfortunately, conventional
+language semantics will not be sufficient to exploit the architecture
+advances being developed such as inter-core message queues. Therefore,
+new high-performance parallel programming models and smarter runtimes
+are being developed.
+
+The majority of these models are data-centric rather than
+compute-centric, which allows the runtime scheduler to prioritize
+scheduling computation on nodes or cores where the required data
+already resides rather than the next available processor
+~\cite{kogge2013exascale}. This kind of model will reduce
+communication which is the predicted bottle neck for exascale systems.
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End: 

@@ -1,0 +1,25 @@
+\section{Limitations of Current Ray Tracing Algorithms}
+
+% RRL: I will add "lmprop" of ray tracer here.
+
+Traditional ray tracing algorithms are embarrassingly parallel as no
+primary ray depends on any other ray. The data needed by each
+individual ray, however, varies widely as its path is traced,
+especially as regards secondary or other rays. Acceleration
+structures, such as k-d trees have been developed to increase ray
+tracing performance. As the data scales up however, it is no longer
+possible to store an entire data set in an acceleration structure in
+shared memory.
+
+One solution is to implement data decomposition. Each node on a
+distributed system is then responsible for a subset of the domain.
+Primary rays and secondary rays are then communicated across nodes as
+the algorithm executes. These types of models typically rely on
+expensive preprocessing steps that help to balance both the data
+distribution and rendering work evenly across nodes
+~\cite{navratil2014dynamic}.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End: 

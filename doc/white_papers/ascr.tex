@@ -10,7 +10,7 @@
 
 \usepackage{geometry}
 \geometry{verbose,letterpaper,
-  tmargin=0.5in,bmargin=1in,lmargin=1in,rmargin=1in,
+  tmargin=0.5in,bmargin=0.8in,lmargin=1in,rmargin=1in,
   headheight=0in,headsep=0in,footskip=0.5in}
 
 \usepackage{graphicx}
@@ -33,14 +33,10 @@
     (\texttt{bobl@tricity.wsu.edu})
   }
 }
-
 \frenchspacing
-
-\pagestyle{empty}
 
 \begin{document}
 \maketitle
-
 \section*{Introduction}
 
 Exascale computers, being defined as being capable of performing at
@@ -55,24 +51,22 @@ models away from traditional ``bulk synchronous'' (aka,
 ``machine-level'') parallel computing models, such as MPI (possibly
 combined with OpenMP), and towards high level ``task-based''
 programming models. In these, the mapping of execution to hardware is
-based upon a developer-designated logical partitioning of the program
-as opposed to, say, preassigned threads.
+based upon a developer-designated logical partitioning of the program.
 
 Task-based models rely more heavily on the runtime for optimization,
 especially load balancing, and fault tolerance, which is expected to
-be a fact of life on exascale computers. We are proposing to
+be a necessity of life on exascale computers. We are proposing to
 investigate the implications of these models for ray tracing.
 
 Ray tracing is a widely-used algorithm. Beyond its well-recognized
 applications in entertainment, it has also been used to study radio
 signal propagation, ocean acoustics, optical design, seismology,
-plasma physics, and the design of nuclear facilities. Often, ray
-tracing is used for data visualization. 
-Manta (University of Utah) and pvOSPRay (Texas Advanced Computing
-Center) are two ray tracing plugins developed for core HPC
-visualization tools such as VisIt and ParaView.
-Both of them work on distributed systems
-but will not scale to exascale in their current form.
+plasma physics, and the design of nuclear facilities, to name a few
+applications. Often, ray tracing is used for data visualization. Manta
+(University of Utah) and pvOSPRay (Texas Advanced Computing Center)
+are two ray tracing plugins developed for core HPC visualization tools
+such as VisIt and ParaView. Both of them work on distributed systems
+but may not scale to exascale in their current form.
 
 \section*{Proposed Work}
 
@@ -83,26 +77,74 @@ implement a system that takes advantage of existing highly optimized
 open source ray tracing engines. It may be integrated into a
 visualization system or it may run as a stand-alone program.
 
-\subsection*{Phase 1: Bulk Synchronous System}
+Our general approach is to partition the scene volume into voxels and
+the system will assign varying amounts of computing power to them. In
+keeping with the expectations for exascale computing, the assignment
+of compute power to data will be the responsibility of the runtime
+guided by our partition and the tuning specification.
+
+\subsection*{Phase 1: Building a Bulk Synchronous System}
 
 We will first design and build a cluster that is capable of performing
-bulk synchronous ray tracing. This may take the form of an implementation
-of OSPRay
+bulk synchronous ray tracing. This may take the form of an
+implementation of OSPRay running on our clusters. OSPRay is an open
+source ray tracing rendering engine that allows for distributed (i.e.
+bulk synchronous) computation. It is built on Intel's open source,
+state-of-the-art Embree ray tracing kernel and is the basis of the
+aforementioned pvOSPRay.
 
-RESUME
+Future work may include integrating with OptiX, NVidia's ray tracing
+kernel that runs on GPUs as well as extending the algorithm to
+dynamically choose at runtime which library or libraries to use based
+on the current runtime system.
 
-We will integrate first with Intel's ray tracing library, Embree, this is the same kernel being used by pvOSPRay and has been optimized for several intel chips including Xeon Phi.  Future work may include integrating with OptiX, NVidia's ray tracing kernel to run on GPUs as well as extending the algorithm to dynamically choose at runtime which library or libraries to used based on the current runtime system.
+\subsection*{Phase 2: Adapting to a Task-Based Model}
 
-\subsection*{Phase 2: Adapting to Task-Based Systems}
+As with other applications, the shift towards exascale will take us
+towards task-based programming models as it changes the underlying
+hardware. This has implications for ray tracing and is what we will
+explore in the second phase of our work.
 
-As with other applications, the shift towards exascale will take us towards task-based programming models and change the underlying hardware.  This has implications on ray tracing and is what we will explore in the second phase of our work.  For example, many existing distributed ray tracers work by duplicating input data across nodes.  As the size of memory per node is projected to decline significantly at exascale, this key design assumption will hinder current algorithms performance.  We will therefore redesign the current algorithms and implement a solution using Intel CnC, a task-based model, that will perform on today's architecture as well as next generation.  
+For example, many existing distributed ray tracers duplicate data
+across nodes. As the size of memory per node is projected to decline
+significantly at exascale, this key design assumption will hinder the
+performance of current algorithms.
 
-\subsection*{Phase 3: Library Extensions}
+We will therefore redesign the current algorithms and implement a
+solution using a task-based model that will perform on today's
+architecture as well as next generation's. Initially this will be
+Intel's Concurrent Collections (CnC), which will be its first use for
+graphics.
 
-With the base system in place we then plan to extend our work in two key ways; optimizing performance and increasing impact.  On many proposed task-based programming models, including CnC, a separate input file can be provided to the runtime to provide hints for scheduling and data movement to increase performance.  We would like to implement and test this tuning specification on different systems to determine the usefulness and necessity for ray tracing algorithms.  Finally we would like to extend our work towards more ray tracing functionality such as global illumination, support for multiple displays, and virtual reality headsets.
+\subsection*{Phase 3: Extending Performance and Functionality}
+
+With the base system in place we will then extend our work in two key
+ways: optimizing performance and producing a wider variety of effects.
+On many proposed task-based programming models, including CnC, a
+separate ``tuning specification'' can provide hints to the runtime for
+scheduling and data movement to increase performance. We will
+implement and test this tuning specification for a variety of
+scenarios.
+
+Currently, load balancing is an important factor in the efficient use
+of parallel computing. On exascale hardware, it is anticipated that
+getting the tuning specification right will take the place of load
+balancing heuristics.
+
+We will then add more ray tracing functionality in the form of
+contemporary features such as global illumination, volume propagation,
+path tracing, subsurface scattering, time dependence, support for
+multiple displays, and virtual reality.
 
 \section*{Conclusion}
 
-We hope that with the coming of exascale, full ray tracing and full global illumination of large data sets will be efficient enough to be used for everyday data visualization.  Although we do not have exascale architectures available yet, we propose to produce a model that will work sufficiently at on today's distributed systems as well as future systems.
+In the past, software developers have not adequately anticipated
+advances in hardware. Software optimized for one generation of
+hardware turns out to be less-than-optimal for the next. As such, the
+new hardware is under-utilized.
+
+Exascale is coming. We propose to develop a framework for ray tracing
+that, while running on existing hardware, will transition easily to
+exascale systems.
 
 \end{document}

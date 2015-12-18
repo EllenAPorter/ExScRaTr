@@ -1,4 +1,4 @@
-DOCNAME = porter_gi_2016
+DOCNAME = main
 
 PRINT = lpr
 PRINTOPTS =
@@ -10,7 +10,8 @@ INCLUDED_FILES = \
 	drawings/Trace1.pdf \
 	drawings/Trace2.pdf \
 	drawings/Trace3.pdf \
-	drawings/Trace4.pdf
+	drawings/Trace4.pdf \
+	$(wildcard sec*.tex)
 
 PDF_PREVIEW = evince
 PDFLATEX_FLAGS =  -file-line-error -interaction=nonstopmode -halt-on-error
