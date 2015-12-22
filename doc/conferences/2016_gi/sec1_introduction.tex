@@ -1,39 +1,12 @@
 % "\firstsection{Introduction}" is in "main.tex"
 
-Exascale computers, by definition capable of performing at least one
-exaflop ($10^{18}$ floating point operations per second), are
-anticipated by 2018~\cite{kogge2013exascale}.
-This will be several orders of magnitude greater than the fastest computers
-currently available. Expectations will be high that software running on these computers will scale similarly.
-Experience has shown, however, that such improvements will not be
-achievable without similarly dramatic innovations in software,
-particularly programming models and runtime design.
+Achieving the performance expected from an exascale computer will require modifications to current hardware architecture which will in turn affect programming models and runtime design. Until recent years, performance has increased in line with Moore's law, the number of transistors within an integrated circuit doubled approximately every two years. As we reached a limit on the number of transistors a single chip could contain, hardware architects had to look for other ways to keep up with performance advancement expectations. In order to take advantage of past hardware advances, applications, runtimes, and programming models have often required redesign. 
 
-Until recent years, application performance has increased in
-correspondence with Moore's law (which is not so much a law as an
-observation): the number of transistors within an integrated circuit
-doubled approximately every two years. As we reached a limit on the
-number of transistors a single core could contain, hardware architects
-had to look for other ways to keep up with performance advancement
-expectations. The most common solution today is multiple cores per
-chip. In order to take advantage of these hardware advances,
-applications often require redesign.
+As we look towards the next generation of HPC systems a shift in application design is anticipated to reach exascale performance. On-chip parallelism along with reduced data movement will be critical for an applications success. Unfortunately, conventional language semantics will not be sufficient to exploit the architecture advances being developed such as inter-core message queues. Therefore, new high-performance parallel programming models and smarter runtimes are being designed. The majority of these models are data-centric rather than compute-centric, which allows the runtime scheduler to prioritize scheduling computation on nodes or cores where the required data already resides rather than the next available processor ~\cite{kogge2013exascale}. This kind of model will reduce communication which is the predicted bottle neck for exascale systems.
 
-In addition to the changing software architectures, the amount of
-output data expected from high-performance computing (HPC)
-applications also scales with compute power: larger computers are
-expected to manage larger amounts of data. An additional expectation
-is that of ``real time'', dynamic display of data.
+The data produced as output from high-performance computing (HPC) applications tends to scale in size with compute power. This is expected to occur with exascale systems as well and has produced a need for visualization algorithms that can take advantage of distributed systems as well as an opportunity to design algorithms that can be integrated into HPC applications to produce results during execution. Section 5 proposes one such design for ray tracing, a commonly used rendering technique, using the Intel Concurrent Collections (CnC) programming model. 
 
-These demands have produced a need for rendering and visualization
-systems which can take advantage of distributed systems. These systems
-may be stand-alone or they may add functionality to existing HPC
-applications. This paper proposes one such system for ray tracing, a
-commonly-used rendering technique, using the Intel Concurrent
-Collections (CnC) programming model. Although CnC runs on current
-distrbuted hardware, it is ultimately intended for use on exascale
-computers.
-
+The rest of this paper is organized as follows: we start with a description of exascale along with a description of the projected trends in programming models that will perform well on exascale.  We then explore one programming model, CnC, that is expected to map well to exascale systems.  After describing the CnC programming model we analyze current ray tracing algorithms and propose places for improvement for exascale.  Specifically, we look at ways we can reduce communication overhead within the algorithm.  We then describe the implementation details of a ray tracer developed in CnC and look at how it might perform on future exascale hardware.  Finally we conclude with a section on future work.
 
 %%% Local Variables: 
 %%% mode: latex

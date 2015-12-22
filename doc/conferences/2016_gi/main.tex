@@ -29,6 +29,7 @@
 \usepackage{times}
 \usepackage{cite} 
 \usepackage{subcaption}
+\usepackage{listings}
 
 %% We encourage the use of mathptmx for consistent usage of times font
 %% throughout the proceedings. However, if you encounter conflicts
@@ -50,7 +51,7 @@
 
 %% Paper title.
 
-\title{Work in Progress: Ray Tracing on Exascale Computers}
+\title{An approach for Ray Tracing on Exascale Computers}
 
 %% This is how authors are specified in the conference style
 
@@ -86,16 +87,9 @@
 %}
 
 \abstract{ %
-  Exascale computers are anticipated to emerge in the next several
-  years. Reaching this scale of computation will require significant
-  hardware and software changes for high-performance computing (HPC).
-  In this paper we explore those changes and the impact they will have
-  on programming models and application design.
 
-  As exascale hardware does not yet exist, this work is speculative.
-  We will examine one specific framework model, Concurrent Collections
-  (CnC), and explore how we can use CnC and Intel's Embree Ray Tracing
-  Engine to build a scalable ray tracing system ready for exascale.
+Exascale computers, defined as being capable of performing at least one exaflop ($10^{18}$ floating point operations per second) are anticipated to emerge in the next several years. Reaching this scale of computation will require hardware and software changes for high-performance computing (HPC). Applications will need to adapt as the architecture of supercomputers change. Some studies suggest “communication avoiding” algorithms might be the most performant design for future systems. As applications scale so do the output they produce.  This has created an interest in the development of scalable visualization algorithms and techniques.  In this paper we explore the impact exascale hardware will have on programming models and application design. We then look at one specific model, the Concurrent Collections Programming Model (CnC) and explore how we can use CnC and Intel's Embree Ray Tracing Engine to build a scalable ray tracing system with an emphasis on communication avoidance and ready for exascale.  As exascale hardware does not yet exist, this work is speculative, but we hope it serves as a foundation for future discussion and work.
+
 }
 
 %% ACM Computing Classification System (CCS). 
@@ -145,8 +139,8 @@
 
 %% if specified like this the section will be ommitted in review mode
 \acknowledgements{
-The authors wish to thank A, B, C.  CnC team at RICE? Intel?}
-
+The authors would like to thank the CnC team at RICE University for their CnC guidance as well as Intel for their implementation of both CnC and Embree.
+}
 \bibliographystyle{abbrv}
 
 %%use following if all content of bibtex file should be shown
