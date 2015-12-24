@@ -1,9 +1,31 @@
 \section{Limitations of Current Ray Tracing Algorithms}
+\label{sec:limitations}
 
-Traditional ray tracing algorithms are embarrassingly parallel as no ray depends on any other ray. The data needed by each individual ray however varies widely as its path is traced. Acceleration structures, such as k-d trees have been developed to increase ray tracing performance. As the data scales up however, it is no longer possible to store an entire data set in an acceleration structure in shared memory. One solution is to implement data decomposition. Each node on a distributed system is then responsible for a subset of the domain. Primary rays and secondary rays are then communicated across nodes as the algorithm executes. These types of models typically rely on expensive preprocessing steps that help to balance both the data distribution and rendering work evenly across nodes ~\cite{navratil2014dynamic}.  
+Traditional parallel ray tracing algorithms are ``embarrassingly'' so
+as no ray depends on any other ray, at least on the same level of the
+ray tracing tree. The data needed by each individual ray, however,
+varies widely as its path is traced. Acceleration structures such as
+k-d trees
+% RRL: citation, also mention SEADS and octrees: see Pharr & Humphries
+have been developed to increase ray tracing performance. As the size
+of the scene increases, however, it is no longer possible to store an
+entire data set in an acceleration structure in shared memory.
 
-Load balancing, a significant bottle neck of today’s systems may not be when we look towards exascale systems.  The proposed smarter programming models and runtimes will allow for scheduling and data movement decisions to be made at runtime which will help reduce imbalance in a system.  Data and computation can be dynamically migrated off of over worked nodes assuming a properly sized granularity for tasks and data. 
+One solution is to implement data decomposition. Each node on a
+distributed system is then responsible for a subset of the domain.
+Primary, secondary, and subsequent rays are then communicated across
+nodes as the algorithm executes. These types of models typically rely
+on expensive preprocessing steps that help to balance both the data
+distribution and rendering work evenly across nodes
+~\cite{navratil2014dynamic}.
 
+Load balancing, a significant bottleneck on today’s systems, may not
+be easily implemented on exascale systems. The proposed smarter
+programming models and runtimes, on the other hand, will allow for
+scheduling and data movement decisions to be made at runtime which
+will help reduce imbalance in a system. Data and computation can be
+dynamically migrated off of overworked nodes (assuming a properly
+sized granularity for tasks and data).
 
 %%% Local Variables: 
 %%% mode: latex
