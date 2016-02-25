@@ -1,0 +1,88 @@
+\documentclass[MSc,12pt]{wsuthesis}
+
+%\usepackage[hdvipdfm]{graphics}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{pstricks}
+\usepackage{setspace}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{appendix}
+\usepackage{lscape}
+
+% import figures
+%\input{figures/figures.tex}
+
+\begin{document}
+
+\title{Your Title}
+
+\author{Your Name}
+
+\submitdate{Your Submission Date}
+
+\centerhdrstrue
+\strhdrstrue
+
+\dept{School of Electrical Engineering and Computer Science}
+
+\chair{Your Committee Chair (Advisor, usually)}
+
+\acknowledgment{
+  Acknowledge whomever you want to here. (optional)
+}
+
+\abstract{
+  This is very abstract.
+}
+
+\dedication{
+  This is dedicated to ... (optional)
+}
+
+\preface
+
+\chapter{Introduction}
+
+Here's the introduction.
+
+\chapter{Background}
+
+Some background.
+
+\chapter{Previous Work}
+
+Cite previous work (using bibtex).
+
+\chapter{Design}
+
+Describe your design here.
+
+\chapter{Implementation}
+
+Implementation details.
+
+\chapter{Evaluation}
+
+How did you evaluate your work?
+
+\chapter{Conclusions}
+
+What conclusions have you drawn?
+
+\chapter{Future Work}
+
+What sort of things could follow from this work?
+
+\newpage
+\singlespacing
+\bibliographystyle{plain}
+\bibliography{bibliography}
+
+\appendix
+% If you really *must* include source code.
+% \chapter{Source Code}
+% \input{appendix.tex}
+
+\end{document}
