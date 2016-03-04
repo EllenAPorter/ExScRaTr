@@ -1,0 +1,122 @@
+# Intel CnC Makefile for SimpleGraph
+TARGET := SimpleGraph
+
+#################################################
+# DEBUG / OPTIMIZATION OPTIONS
+
+# Optimization flags
+CFLAGS += -O2
+
+# Enable CnC assertions and runtime sanity checks
+CFLAGS += -g -DCNC_DEBUG
+
+# Enable debug logging for x86 (also serializes step execution)
+#CFLAGS += -DCNC_DEBUG_LOG=\"./cnc_events.log\"
+
+# Enable debug tracing (all targets)
+#CFLAGS += -DCNC_DEBUG_TRACE=1
+
+# Enable AddressSanitizer checks
+#CC_OPTS += -g -fsanitize=address -fno-omit-frame-pointer
+
+
+#################################################
+# ENVIRONMENT SETUP
+
+CNC_TYPE         ?= icnc
+WORKLOAD_SRC     ?= .
+WORKLOAD_BUILD   ?= ./build/$(CNC_TYPE)
+WORKLOAD_INSTALL ?= ./install/$(CNC_TYPE)
+WORKLOAD_EXEC    ?= $(WORKLOAD_INSTALL)
+CNC_SUPPORT_DIR  ?= $(WORKLOAD_SRC)/cnc_support/$(CNC_TYPE)
+
+# Make sure we can find icnc
+ifndef CNCROOT
+$(error Please source the environment setup script for Intel CnC)
+endif #CNCROOT
+
+
+#################################################
+# INCLUDES
+
+# Auto-parse arguments for "make run" (WORKLOAD_ARGS)
+-include $(APPS_ROOT)/makefiles/make-pre.inc
+
+include $(CNC_SUPPORT_DIR)/SimpleGraph_defs.mk
+
+
+#################################################
+# COMPILER FLAGS SETUP
+
+CC_OPTS += -pthread
+LDFLAGS += -lm $(CC_OPTS) -lcnc -ltbb -ltbbmalloc
+IFLAGS  += -I. -I$(CNC_SUPPORT_DIR)
+
+HEADERS := SimpleGraph_defs.h $(wildcard $(CNC_SUPPORT_DIR)/*.h)
+SRCS := Main.c SimpleGraph.c $(CNC_STEP_SRCS)
+SRCS += $(patsubst %,$(CNC_SUPPORT_DIR)/%.c,cnc_common SimpleGraph_step_ops)
+CPP_SRCS := $(patsubst %,$(CNC_SUPPORT_DIR)/%.cpp,icnc SimpleGraph_context)
+
+# Optionally allow the user to provide some overrides in a separate makefile
+# (allowing you to keep using the auto-generated makefile for most settings)
+-include SimpleGraph_overrides.mk
+
+CFLAGS += $(IFLAGS) $(OPT_FLAGS) -Wall $(CC_OPTS)
+OBJS += $(SRCS:%.c=$(WORKLOAD_BUILD)/%.o)
+OBJS += $(patsubst %.cpp,$(WORKLOAD_BUILD)/%.o,$(CPP_SRCS))
+CFLAGS += -Wno-unused-variable
+
+
+#################################################
+# MAKE TARGETS
+
+.PHONY: all pre_build build install clean run gdb
+
+all: build install
+
+pre_build:
+
+
+build: pre_build $(WORKLOAD_BUILD)/$(TARGET)
+
+install: build $(WORKLOAD_INSTALL)/$(TARGET) $(WORKLOAD_INSTALL)/Makefile.$(CNC_TYPE)
+
+ensure_dir = @mkdir -p $(@D)
+
+# install support files
+$(WORKLOAD_INSTALL)/%: $(WORKLOAD_SRC)/%
+	$(ensure_dir)
+	cp $< $@
+
+# install the binary
+$(WORKLOAD_INSTALL)/$(TARGET): $(WORKLOAD_BUILD)/$(TARGET)
+	$(ensure_dir)
+	cp $< $@
+
+# build C source files
+$(WORKLOAD_BUILD)/%.o: %.c $(HEADERS)
+	$(ensure_dir)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# building C++ source files
+$(WORKLOAD_BUILD)/%.o: %.cpp $(HEADERS)
+	$(ensure_dir)
+	$(CXX) $(CFLAGS) -c $< -o $@
+
+# link the binary
+$(WORKLOAD_BUILD)/$(TARGET): $(OBJS)
+	$(ensure_dir)
+	$(CXX) -o $@ $^ $(LDFLAGS)
+
+# delete build and install directories
+clean:
+	rm -rf $(WORKLOAD_BUILD) $(WORKLOAD_INSTALL)
+
+# run the binary
+run: install
+	cd $(WORKLOAD_EXEC) && \
+	$(RUN_TOOL) ./$(TARGET) $(WORKLOAD_ARGS)
+
+# run the binary with gdb
+gdb: RUN_TOOL := gdb -ex r --args
+gdb: run
