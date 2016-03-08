@@ -1,0 +1,204 @@
+\documentclass{beamer}
+\usetheme{Dresden}
+
+\usepackage{beamerthemesplit}
+\usepackage{color}
+\usepackage{fancyvrb}
+\usepackage{framed}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{verbatim}
+
+\begin{comment}
+% Insert these as needed.
+  
+% Any multidimensional value (point, vector, etc.)
+\newcommand\Nd[1]{\mathbf{#1}}
+
+% Arrays, Vectors, and Points are all bold, with additional (mostly
+% LaTeX) conventions:
+\newcommand\A[1]{\Nd{#1}}
+% note: "\vec\Nd" does the right thing; "\Nd\vec" doesn't.
+\newcommand\V[1]{\vec{\Nd{#1}}}
+\newcommand\Pt[1]{\tilde{\Nd{#1}}}
+
+% Normalize (as a function)
+\newcommand\normalize[1]{\widehat{#1}}
+
+% Unit-length vectors (with hats)
+\newcommand\U[1]{\normalize{\Nd{#1}}}
+
+% Components of unit-length vectors (with hats)
+\newcommand\Usub[2]{\normalize{#1}_{#2}}
+
+% Dot product
+\newcommand\vdot[2]{({#1} \cdot {#2})}
+
+% Flag forward references
+\newcommand\tbd[1]{{\color{red} #1}}
+
+% Rgb (multispectral) values
+\newcommand\rgb[1]{\Nd{#1}}
+
+% Matrices
+\newcommand\mat[1]{\Nd{#1}}
+
+% Vector magnitude
+\newcommand\vmag[1]{\left|#1\right|}
+
+% Absolute value of dot product
+\newcommand\absvdot[2]{\left|{#1} \cdot {#2}\right|}
+
+% Fourier transform
+\newcommand{\Ft}[1]{\mathcal{F} \left[ #1 \right]}
+
+% Fourier transform wrt a specified variable
+\newcommand{\Ftwrt}[2]{\mathcal{F}_{#1} \left[ #2 \right]}
+
+% sum over infinity wrt a specified variable
+\newcommand{\suminftywrt}[1]{\sum_{#1=-\infty}^{\infty}}
+
+% integrate over infinity
+\newcommand{\intinfty}{\int_{-\infty}^{\infty}}
+
+% make \sinc look like \sin
+\newcommand{\sinc}{\mathsf{sinc}}
+\end{comment}
+
+\title{Exascale Raytracing}
+\author{Bob Lewis}
+\institute{School of Engineering and Applied Science \\
+  Washington State University, Tri-Cities}
+\date{March 15, 2016}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{comment}
+% maybe
+\begin{frame}
+  \frametitle{Outline}
+  \tableofcontents
+\end{frame}
+\end{comment}
+
+\section{Exascale Computing}
+
+\begin{frame}
+  \frametitle{History}
+
+  \begin{itemize}
+  \item 1990's: parallel computing mainly a research area
+  \item 1997: petascale ($10^{12}$ flops) achieved
+  \item 2004: Moore's Law levels off -- improvements require parallel
+    computation
+  \item 2008: terascale ($10^{15}$ flops) achieved
+  \item 201?: exascale $10^{18}$ flops achieved
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{At the Exascale...}
+
+  \begin{itemize}
+  \item 100's - 1000's of cores per chip (die).
+  \item Data movement time far exceeds computation time.
+  \item Node failure will be a fact of life.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Implications for Software}
+
+  \begin{itemize}
+  \item For the exascale, compilers need to know static data
+    dependencies and locality.
+  \item Recomputation may be cheaper than communication.
+  \item There will be too many threads to manage explicity. (Analogy:
+    register allocation)
+  \item The runtime will need to be fault tolerant.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Task-Based Programming Models}
+
+  One modern approach to the exascale is ``task-based''.
+  \begin{itemize}
+  \item A static graph specifies connections between computation
+    nodes and data locality.
+  \item Inputs and outputs are explicit.
+  \item The compiler will assign tasks to threads, possibly
+    redundantly.
+  \item The programmer will provide ``hints'' (aka pragmas) to the
+    runtime.
+  \item The execution order is determined by the runtime as inputs
+    become ready.
+  \end{itemize}
+\end{frame}
+
+
+\section{Parallel Ray Tracing}
+
+\section{CnC}
+
+% ---------------------------------------------------------------------------
+\begin{comment}
+
+
+\begin{frame}
+  \frametitle{}
+
+  \begin{itemize}
+  \item 
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{}
+
+  \begin{lstlisting}
+
+  \end{lstlisting}
+\end{frame}
+
+\subsection{N: xxxx}
+
+\begin{frame}
+  \vfill
+  \begin{center}
+    {\huge Part N: xxxx}
+  \end{center}
+  \vfill
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{}
+
+  \begin{columns}[c]
+    \column{0.5\textwidth}
+    \column{0.5\textwidth}
+  \end{columns}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{}
+
+  \begin{center}
+    \includegraphics[height=\textheight]{drawings/}
+  \end{center}
+\end{frame}
+
+
+\end{comment}
+% ---------------------------------------------------------------------------
+
+\end{document}
