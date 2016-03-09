@@ -22,7 +22,7 @@ default: $(DOCNAME).pdf
 .PHONY: clean
 clean:
 	rm -rf auto/ \
-	    *.aux *.bbl *.blg *.dlog *.dvi *.log *.prv \
+	    *.aux *.bbl *.blg *.dlog *.dvi *.lof *.log *.lot *.prv *.toc \
 	    _region_.tex $(GENFILES) *~
 
 .PHONY: immaculate
