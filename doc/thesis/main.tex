@@ -1,0 +1,109 @@
+\documentclass[MSc,12pt]{wsuthesis}
+
+%\usepackage[hdvipdfm]{graphics}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{pstricks}
+\usepackage{setspace}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{appendix}
+\usepackage{lscape}
+
+% import figures
+%\input{figures/figures.tex}
+
+\begin{document}
+
+\title{Anticipating Ray Tracing on Exascale Computers}
+
+\author{Ellen Porter}
+
+\submitdate{Your Submission Date}
+
+\centerhdrstrue
+\strhdrstrue
+
+\dept{School of Electrical Engineering and Computer Science}
+
+\chair{Robert R. Lewis}
+
+\acknowledgment{
+  Acknowledge whomever you want to here. (optional)
+}
+
+\abstract{
+  Exascale computers, defined as being capable of performing at least
+  one exaflop ($10^{18}$ floating point operations per second) are
+  anticipated to emerge in the next several years. Reaching this scale
+  of computation will require hardware and software changes for
+  high-performance computing (HPC). Applications will need to adapt as
+  the architecture of supercomputers change. Some studies suggest
+  ``communication avoiding'' algorithms might be the most performant
+  design for future systems. This has created an interest in the
+  development of scalable visualization algorithms and techniques.
+
+  In this paper we explore the impact exascale hardware will have on
+  programming models and application design. We then look at one
+  specific model, Concurrent Collections (CnC), and explore how we can
+  use it and Intel's Embree Ray Tracing Engine to build a scalable ray
+  tracing system with an emphasis on communication avoidance and
+  extension for exascale. As exascale hardware does not yet exist,
+  this work is speculative, but we hope it serves as a foundation for
+  future discussion and work. %
+}
+
+\dedication{
+  This is dedicated to ... (optional)
+}
+
+\preface
+
+\chapter{Introduction}
+
+\input{sec1_introduction}
+
+\chapter{Background}
+
+\input{sec2_reaching_exascale}
+
+
+\input{sec4_limitations_of_current_ray_tracing_algorithms}
+
+\chapter{Previous Work}
+
+Cite previous work (using bibtex).
+
+\chapter{Design}
+
+\input{sec3_the_cnc_programming_model}
+
+
+\chapter{Implementation}
+
+\input{sec5_cnc_ray_tracing_implementation}
+
+\chapter{Evaluation}
+
+\input{sec6_preliminary_results}
+
+\chapter{Conclusions}
+
+\input{sec7_conclusions_and_future_directions}
+
+\chapter{Future Work}
+
+What sort of things could follow from this work?
+
+\newpage
+\singlespacing
+\bibliographystyle{plain}
+\bibliography{bibliography}
+
+\appendix
+% If you really *must* include source code.
+% \chapter{Source Code}
+% \input{appendix.tex}
+
+\end{document}

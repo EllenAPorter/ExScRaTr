@@ -1,0 +1,78 @@
+\section{Reaching Exascale}
+\label{sec:reaching}
+
+Until 2004, performance of single-core microprocessors increased as
+predicted as a result of smaller and faster transistors being
+developed (i.e. Moore's Law). At that time, this trend shifted as we
+reached an inflection point caused by a chip’s power dissipation
+~\cite{kogge2013exascale}. Unable to sufficiently and inexpensively
+cool a chip, chip designers looked for other ways to increase
+performance. This came in the form of multi-core processors, which are
+now the building blocks of many HPC (and other) systems.
+
+The introduction of multi-core processors on each node of a cluster
+caused a shift in parallel application design. Programs using the
+cross-platform standard Message Passing Interface (MPI) library
+~\cite{Snir:1998:MCR:552013} could not efficiently exploit parallelism
+on individual nodes without a rewrite of the underlying algorithms.
+The Open Multi-Processing (OpenMP) ~\cite{openmp08} library presented
+a cross-platform standard for parallel programming on multicore nodes,
+which led to the emergence of hybrid systems that mixed MPI and
+OpenMP. The cluster would run a collection of MPI processes, one per
+node, and each node would then execute an OpenMP program redesigned
+from the original single-threaded program which used a fixed number of
+threads to execute a single work-sharing construct, such as a parallel
+loop ~\cite{gropp2013programming}.
+
+Although the exact form of an exascale ecosystem is unknown, research
+suggests that data movement will overtake computation as the dominant
+cost in the system.
+% RRL: It would be nice to cite something here.
+This results from the primary means to increase parallelism is
+expected to be on-chip, with some predictions
+% RRL: citation?
+suggesting hundreds or even thousands of cores
+per chip die.
+As a result, we will would see a higher available bandwidth on
+chip along with lower latencies for communication within a node.
+% RRL: It is not logical that lower latency should lead to a need to
+%   reduce commmunication, *unless* we're talking about off-chip
+%   communication.
+The
+lower overhead within a chip provides a significant incentive to
+develop ``communication avoiding'' algorithms.
+
+Two means to avoid communication are, first, to re-compute values
+instead of communicating results when possible and, second, to take
+account of the need to minimize communication when partitioning the
+algorithm into parallel functional units.
+
+Many of our current programming models lack the semantics necessary to
+implement communication-avoiding algorithms. As a result, new
+languages with additional semantics are being proposed for exascale
+systems. A common theme among these languages is the ability to
+statically declare data dependencies and data locality information.
+These additional details can then be used by the runtime to aid in
+scheduling and anticipatory data movement.
+
+\subsection{Task-Based Programming Models}
+
+One class of programming model that may map well onto exascale systems
+are task-based models. They tend to be declarative: An application is
+broken down into chunks of work and the inputs and outputs to that
+work are declared in the language semantics. Their explicit data
+dependencies allow the runtime to optimally schedule and execute the
+tasks, or chunks of work, in the application.
+
+Execution can often be further improved by the implementation of a
+secondary specification (a file, typically) separate from the program
+that provides ``hints'' to the runtime. The key difference between many
+task-based models and more traditional programming models is the
+movement from compute-centric to data-centric application design.
+Algorithms are designed around the data a task needs to execute and
+the data it will produce rather than designed around the computation.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End: 
