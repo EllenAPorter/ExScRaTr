@@ -1,0 +1,153 @@
+%\section{Introduction} % might not need to repeat this as a section
+\label{sec:introduction}
+  
+"Ray tracing is the future and always will be". [TODO: look up quote, use idea 
+as first introduction paragraph]
+  
+Achieving the performance expected from an exascale computer will
+require modifications to current hardware architecture which will in
+turn affect programming models and runtime\footnote{ %
+  We use the term ``runtime'' in the sense of a library or libraries
+  compiled into and running as part of an application which is not
+  specific to the application but which moderates its interface (e.g.
+  memory management, thread prioritization, etc.) with the operating
+  system. It's not just a ``library'', as it may have its own threads
+  or other execution units. %
+} design. Until recent years, performance increased in keeping with
+Moore's ``Law'' (which is really more of an observation): The number
+of transistors within an integrated circuit doubled approximately
+every two years. As we reached a limit on the number of transistors a
+single chip could contain, hardware architects had to look for other
+ways to keep up with performance advancement expectations. In most
+cases, this involved a greater emphasis on parallelism. Consequently,
+in order to take advantage of hardware advances, applications,
+runtimes, and programming models have often required redesign, if not
+reimplementation.
+
+As we look towards the next generation of high-performance computing
+(HPC) systems, a shift in application design is again anticipated,
+this time to reach exascale performance. On-chip parallelism along
+with reduced data movement will be critical for applications to make
+optimal use of the hardware and minimize power consumption.
+
+Unfortunately, conventional language semantics will not be sufficient
+to exploit the architectural advances being developed such as
+inter-core message queues. Therefore, new parallel programming models
+and smarter runtimes are being designed. The majority of these models
+are ``data-centric'' rather than ``compute-centric'': They allow, for
+instance, the runtime scheduler to prioritize scheduling computation
+on nodes or cores where the required data already resides rather than
+% RRL: Can we standardize on (flaxible) OpenCL nomenclature for
+% parallelism?
+the next available processor ~\cite{kogge2013exascale}. This kind of
+model will reduce communication which is the predicted bottle neck for
+exascale systems.
+
+The data produced as output from HPC applications such as fluid
+simulations or finite-element models tends to scale in size with
+compute power. This is expected to occur with exascale systems as well
+and has produced a need for visualization algorithms that can take
+advantage of distributed systems as well as an opportunity to design
+algorithms that can be integrated into HPC applications to produce
+results during execution. Section~\ref{sec:sec5_cnc_ray_tracing_implementation} 
+proposes one such design for ray tracing, a commonly used rendering technique,
+using the Intel Concurrent Collections (CnC) programming model.
+
+The rest of this paper is organized as follows: We start with a description of 
+exascale along with a description of the projected trends in programming models 
+that will perform well on exascale.  We then explore one programming model, CnC, 
+that is expected to map well to exascale systems.  After describing the CnC 
+programming model we analyze current ray tracing algorithms and propose places 
+for improvement for exascale.  Specifically, we look at ways we can reduce 
+communication overhead within the algorithm.  We then describe the 
+implementation details of a ray tracer developed in CnC and look at how it might 
+perform on future exascale hardware.  Finally we conclude with a section on 
+future work.
+
+\section{Exascale}
+\label{sec:exascale}
+
+Until 2004, performance of single-core microprocessors increased as
+predicted as a result of smaller and faster transistors being
+developed (i.e. Moore's Law). At that time, this trend shifted as we
+reached an inflection point caused by a chip’s power dissipation
+~\cite{kogge2013exascale}. Unable to sufficiently and inexpensively
+cool a chip, chip designers looked for other ways to increase
+performance. This came in the form of multi-core processors, which are
+now the building blocks of many HPC (and other) systems.
+
+The introduction of multi-core processors on each node of a cluster
+caused a shift in parallel application design. Programs using the
+cross-platform standard Message Passing Interface (MPI) library
+~\cite{Snir:1998:MCR:552013} could not efficiently exploit parallelism
+on individual nodes without a rewrite of the underlying algorithms.
+The Open Multi-Processing (OpenMP) ~\cite{openmp08} library presented
+a cross-platform standard for parallel programming on multicore nodes,
+which led to the emergence of hybrid systems that mixed MPI and
+OpenMP. The cluster would run a collection of MPI processes, one per
+node, and each node would then execute an OpenMP program redesigned
+from the original single-threaded program which used a fixed number of
+threads to execute a single work-sharing construct, such as a parallel
+loop ~\cite{gropp2013programming}.
+
+Although the exact form of an exascale ecosystem is unknown, research
+suggests that data movement will overtake computation as the dominant
+cost in the system.
+% RRL: It would be nice to cite something here.
+This results from the primary means to increase parallelism is
+expected to be on-chip, with some predictions
+% RRL: citation?
+suggesting hundreds or even thousands of cores
+per chip die.
+As a result, we will would see a higher available bandwidth on
+chip along with lower latencies for communication within a node.
+% RRL: It is not logical that lower latency should lead to a need to
+%   reduce communication, *unless* we're talking about off-chip
+%   communication.
+The
+lower overhead within a chip provides a significant incentive to
+develop ``communication avoiding'' algorithms.
+
+Two means to avoid communication are, first, to re-compute values
+instead of communicating results when possible and, second, to take
+account of the need to minimize communication when partitioning the
+algorithm into parallel functional units.
+
+Many of our current programming models lack the semantics necessary to
+implement communication-avoiding algorithms. As a result, new
+languages with additional semantics are being proposed for exascale
+systems. A common theme among these languages is the ability to
+statically declare data dependencies and data locality information.
+These additional details can then be used by the runtime to aid in
+scheduling and anticipatory data movement.
+
+\section{Ray tracing}
+\label{sec:raytracing}
+
+Ray tracing is one of the rendering techniques often used in computer graphics 
+to render three-dimensional scenes into two dimensional images [Shirley].  
+A ray tracing renderer takes a set of objects in 3D space as input and then 
+casts viewing rays into the scene to determine the color of each pixel 
+in an output image.  
+
+As outlined in Shirley [ref], ray tracing has three main components, ray 
+generation, ray intersection and shading.  The first component is responsible
+for computing viewing rays, which are rays from an origin position to a point on 
+an image plane.  An image plane is the plane that will contain the final output 
+image; it is positioned between the eye, or origin, location and the scene to be 
+rendered. [graphic would be good here?].
+
+Each viewing ray is then cast into the scene where we apply the second component, 
+ray intersection.  For each ray we need to know what object in the scene it 
+intersects first.  This tells us which object can be seen by that viewing ray,
+allowing us to color the pixel of the image that the viewing ray passed through
+by shading, the third component, our intersected object.  Most shading models 
+require information from secondary rays in order to compute the correct color.  
+These secondary rays include light rays which directional rays pointing from 
+light sources towards the intersection point as well as reflected and refracted 
+rays depending on the type of material of the object at the intersection point.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End: 
