@@ -2,13 +2,16 @@ When designing algorithms for distributed systems it is important to consider
 concurrency in algorithm design.  After providing a brief definition of parallel
 and distributed computing, we therefore look at Petri nets, a mathematical 
 modeling language that has been used to help describe algorithms designed for 
-distributed systems.  Task-based programming models also build upon the idea of 
-considering concurrent execution in the design phase of algorithms and are 
-anticipated to map well to future exascale system design.  CnC, developed by 
-Intel, is one such task-based model.  This chapter concludes with an outline of
-the current state of distributed and parallel ray tracing.
+distributed systems.  Expanding on this idea, we next look at task-based 
+programming models which often include designing for concurrent execution in
+their language description.  They are also anticipated to map well to future 
+exascale system design.  CnC, developed by Intel, is one such task-based model 
+that we will look at.  This chapter concludes with an outline of the current 
+state of distributed and parallel ray tracing along with details on Embree, a
+parallel ray tracing library developed by Intel.
 
 \section{Parallel and Distributed Computing}
+\label{computing}
 
 Parallel computing is a straight forward concept where a single task is broken 
 down into into smaller sub tasks.  Each of the sub tasks can then be executed at
@@ -35,24 +38,45 @@ algorithm for distributed execution.
 One of key challenges algorithm designers face when designing a parallel 
 application is that of concurrency.  Due to the often unpredictable order of
 execution within an application it is often difficult to detect all errors 
-through traditional testing [FRANCO].  Petri nets provide a means of proving
-the correctness of a program given concurrent execution.  They also map closely
-to the design of task-based programming models and can therefore be used as a 
-basis for designing tasked-based applications.
+through traditional testing~\cite{franco2012true}.  Petri nets provide a means 
+of proving the correctness of a program given concurrent execution.  They also 
+map closely to the design of task-based programming models and can therefore be 
+used as a basis for designing tasked-based applications.
+
+\begin{figure}[!htb]
+\minipage{0.32\textwidth}
+  \includegraphics[width=\linewidth]{drawings/Petri1.pdf}
+  \caption{Waiting for tokens}\label{fig:petri1}
+\endminipage\hfill
+\minipage{0.32\textwidth}
+  \includegraphics[width=\linewidth]{drawings/Petri2.pdf}
+  \caption{Transition ready to fire}\label{fig:petri2}
+\endminipage\hfill
+\minipage{0.32\textwidth}%
+  \includegraphics[width=\linewidth]{drawings/Petri3.pdf}
+  \caption{After transition fires}\label{fig:petri3}
+\endminipage
+\caption{Petri net}
+\label{fig:petri}
+\end{figure}
 
 Petri nets are bipartite directed graphs with two kind of nodes, \emph{places}
 and \emph{transitions}.  Connections between the nodes are called \emph{arcs}
 and can only connect places to transitions or transitions to places.  Tokens are
-held by places and used to represent firing criteria for a transition.
-
-TODO: simple example with a graph.
+held by places and used to represent firing criteria for a transition.  
+Figure~\ref{fig:petri} shows a simple example of a Petri net graph.  The 
+example defines three places, A, B, and C and one transition.  The firing 
+criteria for the transition is two tokens from A and one token from B.  Once 
+sufficient tokens arrive, the transition is able to fire, see 
+figure~\ref{fig:petri2}.  The transition consumes the two tokens from A and the
+one token from B and produces a single token for C, see Figure~\ref{fig:petri3}.
 
 Once formalized into a Petri net, an algorithm can be "unfolded" into an 
 occurrence net which represents every specific instance of execution in a flat
 linear way.  Once an occurrence net has been defined it can be used to analyze a
-concurrent application and prove correctness.  We will use Petri nets to outline
-our idealized ray tracing engine for concurrent execution on future exascale 
-systems in section [TODO:REFERENCE to chapter 3].  
+concurrent application and prove correctness~\cite{franco2012true}.  We will use 
+etri nets to outline our idealized ray tracing engine for concurrent execution 
+on future exascale systems in section~\ref{sec:design}.  
 
 \section{Task-Based Programming Models}
 \label{sec:task-based}
@@ -66,7 +90,7 @@ application.
 
 Execution can often be further improved by the implementation of a
 secondary specification (a file, typically) separate from the program
-that provides ``hints'' to the runtime. The key difference between many
+that provides "hints" to the runtime. The key difference between many
 task-based models and more traditional programming models is the
 movement from compute-centric to data-centric application design.
 Algorithms are designed around the data a task needs to execute and
@@ -82,31 +106,29 @@ semantics allow a task-based runtime to programmatically exploit
 parallelism. In addition, it allows for a secondary file, called a
 tuning spec, to provide additional hints to improve performance.
 
-\begin{figure}[t!]
-  \centering
-  \includegraphics[width=0.5\textwidth]{drawings/CnCExample.pdf}
-  \caption{CnC Graph Semantics}
-  \label{fig:cnc_graph}
-\end{figure}
-
 The CnC model can be thought of as a producer-consumer paradigm where
-data is produced and consumed by tasks, or ``steps'' in CnC
+data is produced and consumed by tasks, or "steps" in CnC
 terminology. The produced and consumed data is declared explicitly in
-an input file, known as a ``graph file''. The steps themselves are
+an input file, known as a "graph file". The steps themselves are
 also entities that can be produced. When a step produces another step,
-this is known as a ``control dependency'' and is also declared in the
+this is known as a "control dependency" and is also declared in the
 graph file.
 
-Figure~\ref{fig:cnc_graph} shows a graph file. The rectangles are
-``step collections'', the ``data collections'' are ovals, and the
+Figure~\ref{fig:cnc_graph} shows a example graph file. The rectangles are
+"step collections", the "data collections" are ovals, and the
 dependencies are directed edges between them. The title of a step
 collection is usually a descriptive verb and the title of a data
 collection is usually a descriptive noun. The control dependencies are
 not shown. A text description of Figure~\ref{fig:cnc_graph} (which
 includes control information) is provided to CnC when designing a CnC
-application.
-% RRL: "designing", not "running"?
-Section~\ref{sec:raytracing} shows an example of this.
+application.  Section~\ref{sec:implementation} shows an example of this.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.5\textwidth]{drawings/CnCExample.pdf}
+  \caption{CnC Graph Semantics}
+  \label{fig:cnc_graph}
+\end{figure}
 
 By declaring all dependencies between steps and data, the specifics
 regarding how the algorithm is executed is abstracted out of the
@@ -119,19 +141,21 @@ guarantee that a thread's inputs are available and consequently start
 the thread.
 
 For some more complicated semantics, additional hints can be provided
-to the runtime through a ``tuning specification''. As the tuning
+to the runtime through a "tuning specification". As the tuning
 specification usually is in a separate file, this makes it easy to run
 the same program on different architectures, as no rewrites of the
 application are necessary to switch platforms: just the tuning
 specification.
 
 \subsubsection{Language Specifics}
+\label{sec:cnc_language}
+
 The CnC model is built on three key constructs; step collections, data
 collections, and control collections ~\cite{budimlicconcurrent}. A
 step collection defines computation, an instance of which consumes and
 produces data. The consumed and produced data items belong to data
 collections. Data items within a data collection are indexed using
-item ``tags'': tuples that, like primary keys, can uniquely identify a
+item "tags": tuples that, like primary keys, can uniquely identify a
 data item in the data collection. Finally, the control collection
 describes the prescription, or creation, of step instances. The
 relationship between these collections as well as the collections
@@ -161,6 +185,7 @@ likelihood that steps are schedule for execution when their required
 input data is ready.
 
 \subsection{Example}
+\label{sec:cnc_example}
 
 \begin{figure}[!tb]
   \centering
@@ -168,14 +193,6 @@ input data is ready.
   \caption{A CnC Graph to Compute the Fibonacci Sequence}
   \label{fig:fib_graph}
 \end{figure}
-
-% apparently putting this here makes it show up on the top of page 3, where I want it
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{drawings/CnC.pdf}
-  \caption{CnC Graph}
-  \label{fig:cnc}
-\end{figure*}
 
 Figure~\ref{fig:fib_graph} shows an example of a
 simple iterative implementation of the Fibonacci sequence. This
@@ -195,7 +212,8 @@ data at tag 3. Specifically it will consume 1, 1 and produce 2.
 The number of steps executed in this example is provided by the 
 environment.
 
-\section{Distributed Ray Tracing}
+\section{Distributed and Parallel Ray Tracing}
+\label{sec:ray_tracing}
 
 \emph{"Ray tracing is the future and ever will be"} was the title of a SIGGRAPH 
 course in 2013.  The course outlined the state of the art in ray tracing 
@@ -213,7 +231,7 @@ and only the cost of creating new tasks and joining the tasks to produce the
 final ray traced image limit the amount of parallelism you can extract from the
 algorithm\footnote{ %
   The system you are executing a ray tracer on limits the parallelism of the 
-  application more than the algorithm.  
+  application.  
 }.
 
 Although no ray depends on any other ray in a ray tracing algorithm, the data 
@@ -236,6 +254,20 @@ runtimes, on the other hand, will allow for scheduling and data movement
 decisions to be made at runtime which will help reduce imbalance in a system. 
 Data and computation can be dynamically migrated off of overworked nodes 
 (assuming a properly sized granularity for tasks and data).
+
+
+\section{Embree}
+\label{sec:embree}
+Embree is a parallel ray tracing library developed at Intel that has been 
+optimized at the architecture level to take advantage of chip specific caching 
+and communication.  Embree supports both packet (multiple rays) and single ray 
+intersection queries into optimized data structures ~\cite{wald2014embree}. The 
+data structures used in Embree are BVH or bounding volume hierarchy structures.  
+BHV data structures are hierarchical structures that are fast to build with 
+small memory footprints and fast traversal times due to their shallow depth 
+~\cite{wald2014embree}.  Due to the optimization within Embree, the library 
+exploits on node parallelism and is on par with other state of the art ray 
+tracing libraries. 
 
 %%% Local Variables: 
 %%% mode: latex

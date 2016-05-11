@@ -1,4 +1,3 @@
-\label{sec:raytracing}
 
 When designing our ray tracing prototype for exascale we focused on
 two key aspects: (a) producing a task based application with (b) an
@@ -20,11 +19,20 @@ contains no data), and extrapolate from there rough estimates on how
 our algorithm might perform on an exascale system.
 
 \section{Implementation}
+\label{sec:implementation}
 
 We chose to implement our ray tracer using Intel’s implementation of
 CnC, which is built on top of their Thread Building Blocks (TBB)
 library. This runs on today’s multicore systems but has the potential
 to do so on anticipated exascale systems.
+
+% apparently putting this here makes it show up on the top of page 3, where I want it
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{drawings/CnC.pdf}
+  \caption{CnC Graph}
+  \label{fig:cnc}
+\end{figure}
 
 Figure \ref{fig:cnc} shows the graph for our distributed ray tracer.
 It shows data collections, step collections, and the dependencies
