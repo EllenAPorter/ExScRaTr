@@ -1,10 +1,10 @@
 When designing algorithms for distributed systems it is important to consider 
 concurrency in algorithm design.  After providing a brief definition of parallel
 and distributed computing, we therefore look at Petri nets, a mathematical 
-modeling language that has been used to help describe algorithms designed for 
+modeling language that has been used to describe algorithms designed for 
 distributed systems.  Expanding on this idea, we next look at task-based 
 programming models which often include designing for concurrent execution in
-their language description.  They are also anticipated to map well to future 
+their language definition.  They are also anticipated to map well to future 
 exascale system design.  CnC, developed by Intel, is one such task-based model 
 that we will look at.  This chapter concludes with an outline of the current 
 state of distributed and parallel ray tracing along with details on Embree, a
@@ -29,7 +29,7 @@ share the machines memory.  A distributed system refers to a collection of
 machines, possibly parallel machines, all working together.  The individual 
 machines in the system are often called nodes and have access only to their 
 machines memory.  To share data, the nodes must communicate with each other
-through a communication channel which is slower the directly accessing shared
+through a communication channel. This is slower than directly accessing shared
 memory.  The communication overhead must be considered when optimizing an 
 algorithm for distributed execution.
 
@@ -41,7 +41,7 @@ execution within an application it is often difficult to detect all errors
 through traditional testing~\cite{franco2012true}.  Petri nets provide a means 
 of proving the correctness of a program given concurrent execution.  They also 
 map closely to the design of task-based programming models and can therefore be 
-used as a basis for designing tasked-based applications.
+used as a basis for designing algorithms for tasked-based applications.
 
 \begin{figure}[!htb]
 \minipage{0.32\textwidth}
@@ -71,11 +71,11 @@ sufficient tokens arrive, the transition is able to fire, see
 figure~\ref{fig:petri2}.  The transition consumes the two tokens from A and the
 one token from B and produces a single token for C, see Figure~\ref{fig:petri3}.
 
-Once formalized into a Petri net, an algorithm can be "unfolded" into an 
+Once formalized into a Petri net, an algorithm can be \emph{unfolded} into an 
 occurrence net which represents every specific instance of execution in a flat
 linear way.  Once an occurrence net has been defined it can be used to analyze a
 concurrent application and prove correctness~\cite{franco2012true}.  We will use 
-etri nets to outline our idealized ray tracing engine for concurrent execution 
+Petri nets to outline our idealized ray tracing engine for concurrent execution 
 on future exascale systems in section~\ref{sec:design}.  
 
 \section{Task-Based Programming Models}
@@ -90,7 +90,7 @@ application.
 
 Execution can often be further improved by the implementation of a
 secondary specification (a file, typically) separate from the program
-that provides "hints" to the runtime. The key difference between many
+that provides \emph{hints} to the runtime. The key difference between many
 task-based models and more traditional programming models is the
 movement from compute-centric to data-centric application design.
 Algorithms are designed around the data a task needs to execute and
@@ -101,22 +101,21 @@ the data it will produce rather than designed around the computation.
 
 The Concurrent Collections Programming Model (CnC), developed by
 Intel, is one such data-centric programming model. Its deterministic
-% RRL: "task-based" vs. "data-centric" -- choose one
 semantics allow a task-based runtime to programmatically exploit
 parallelism. In addition, it allows for a secondary file, called a
-tuning spec, to provide additional hints to improve performance.
+tuning specification, to provide additional hints that can improve performance.
 
 The CnC model can be thought of as a producer-consumer paradigm where
-data is produced and consumed by tasks, or "steps" in CnC
+data is produced and consumed by tasks, or \emph{steps} in CnC
 terminology. The produced and consumed data is declared explicitly in
-an input file, known as a "graph file". The steps themselves are
+an input file, known as a \emph{graph file}. The steps themselves are
 also entities that can be produced. When a step produces another step,
-this is known as a "control dependency" and is also declared in the
+this is known as a \emph{control dependency} and is also declared in the
 graph file.
 
-Figure~\ref{fig:cnc_graph} shows a example graph file. The rectangles are
-"step collections", the "data collections" are ovals, and the
-dependencies are directed edges between them. The title of a step
+Figure~\ref{fig:cnc_graph} shows a example graph file. The rectangles represent
+\emph{step collections}, the ovals represent \emph{data collections} are the
+dependencies are the directed edges connecting them. The title of a step
 collection is usually a descriptive verb and the title of a data
 collection is usually a descriptive noun. The control dependencies are
 not shown. A text description of Figure~\ref{fig:cnc_graph} (which
@@ -141,7 +140,7 @@ guarantee that a thread's inputs are available and consequently start
 the thread.
 
 For some more complicated semantics, additional hints can be provided
-to the runtime through a "tuning specification". As the tuning
+to the runtime through a \emph{tuning specification}. As the tuning
 specification usually is in a separate file, this makes it easy to run
 the same program on different architectures, as no rewrites of the
 application are necessary to switch platforms: just the tuning
@@ -155,7 +154,7 @@ collections, and control collections ~\cite{budimlicconcurrent}. A
 step collection defines computation, an instance of which consumes and
 produces data. The consumed and produced data items belong to data
 collections. Data items within a data collection are indexed using
-item "tags": tuples that, like primary keys, can uniquely identify a
+item epmh{tags}: tuples that, like primary keys, can uniquely identify a
 data item in the data collection. Finally, the control collection
 describes the prescription, or creation, of step instances. The
 relationship between these collections as well as the collections
@@ -206,7 +205,7 @@ are produced by the environment, the rest of the values in the
 collection are produced as needed by COMPUTE\_FIB. A tag exists for
 COMPUTE\_FIB as well. We can index this collection by the integer
 sequence a particular instance will produce. For example, the step
-% RRL: What do you mean by "integer sequence"? The *whole* Fibo sequence?
+% RRL: What do you mean by "integer sequence"? The *whole* Fib sequence?
 instance at tag 3 will consume the data at tag 1 and 2, and produce
 data at tag 3. Specifically it will consume 1, 1 and produce 2.
 The number of steps executed in this example is provided by the 
@@ -253,8 +252,7 @@ implemented on exascale systems. The proposed smarter programming models and
 runtimes, on the other hand, will allow for scheduling and data movement 
 decisions to be made at runtime which will help reduce imbalance in a system. 
 Data and computation can be dynamically migrated off of overworked nodes 
-(assuming a properly sized granularity for tasks and data).
-
+assuming a properly sized granularity for tasks and data.
 
 \section{Embree}
 \label{sec:embree}
