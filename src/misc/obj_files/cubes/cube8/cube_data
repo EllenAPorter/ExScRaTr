@@ -1,0 +1,11 @@
+model extents: <0.0, 0.0, 0.0>, <2.0, 2.0, 3.0>
+groups: 3
+	voxel: 0	triangle count: 16
+	voxel: 1	triangle count: 5
+	voxel: 2	triangle count: 5
+	voxel: 3	triangle count: 4
+	voxel: 4	triangle count: 5
+	voxel: 5	triangle count: 4
+	voxel: 6	triangle count: 4
+	voxel: 7	triangle count: 17
+duplicate triangles: 24
