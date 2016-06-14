@@ -11,7 +11,7 @@ state of distributed and parallel ray tracing along with details on Embree, a
 parallel ray tracing library developed by Intel.
 
 \section{Parallel and Distributed Computing}
-\label{computing}
+\label{sec:computing}
 
 Parallel computing is a straight forward concept where a single task is broken 
 down into into smaller sub tasks.  Each of the sub tasks can then be executed at
@@ -46,15 +46,15 @@ used as a basis for designing algorithms for tasked-based applications.
 \begin{figure}[!htb]
 \minipage{0.32\textwidth}
   \includegraphics[width=\linewidth]{drawings/Petri1.pdf}
-  \caption{Waiting for tokens}\label{fig:petri1}
+  (a) Waiting for tokens
 \endminipage\hfill
 \minipage{0.32\textwidth}
   \includegraphics[width=\linewidth]{drawings/Petri2.pdf}
-  \caption{Transition ready to fire}\label{fig:petri2}
+  (b) Transition ready to fire
 \endminipage\hfill
 \minipage{0.32\textwidth}%
   \includegraphics[width=\linewidth]{drawings/Petri3.pdf}
-  \caption{After transition fires}\label{fig:petri3}
+  (c) After transition fires
 \endminipage
 \caption{Petri net}
 \label{fig:petri}
@@ -68,8 +68,9 @@ Figure~\ref{fig:petri} shows a simple example of a Petri net graph.  The
 example defines three places, A, B, and C and one transition.  The firing 
 criteria for the transition is two tokens from A and one token from B.  Once 
 sufficient tokens arrive, the transition is able to fire, see 
-figure~\ref{fig:petri2}.  The transition consumes the two tokens from A and the
-one token from B and produces a single token for C, see Figure~\ref{fig:petri3}.
+figure~\ref{fig:petri} b.  The transition consumes the two tokens from A and the
+one token from B and produces a single token for C, see 
+Figure~\ref{fig:petri} c.
 
 Once formalized into a Petri net, an algorithm can be \emph{unfolded} into an 
 occurrence net which represents every specific instance of execution in a flat

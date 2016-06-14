@@ -19,6 +19,22 @@
 % import figures
 %\input{figures/figures.tex}
 
+\lstnewenvironment{algorithm}[1][] %defines the algorithm listing environment
+{   
+    \lstset{ %this is the stype
+        frame=tB,
+        numbers=left, 
+        numberstyle=\tiny,
+        basicstyle=\scriptsize, 
+        keywordstyle=\color{black}\bfseries,
+        keywords={,input, output, return, datatype, function, in, if, else, 
+                   foreach, while, begin, end, for, all, do, out, all, then}
+        numbers=left,
+        xleftmargin=.04\textwidth,
+        #1 
+    }
+}{}
+
 \begin{document}
 
 \title{Anticipating Ray Tracing on Exascale Computers}
