@@ -1,16 +1,17 @@
 \label{sec:design}
 
-Libraries such as Embree, see section~\ref{sec:embree} provide optimized ray 
+Libraries such as Embree, see section~\ref{sec:embree}, provide optimized ray 
 tracing algorithms that exploit parallelism on a single machine.  When we look
 at larger data sets that will no longer fit into the memory of a single machine,
-we may consider the use of distributed systems, section~\ref{sec:computing} to 
-render images.  The next generation of distributed systems capable of exascale
-computation provides an opportunity and in some cases a necessity to redesign 
-current distributed applications.  Two of the main differences that will set
-exascale systems apart from current distributed systems is the increase in the
-number of nodes available and the reduction of the memory available on a single
-node.  For algorithm designers, this means there will be increased communication 
-overhead as data will need to be passed more frequently between individual nodes.
+we may consider the use of distributed systems, see section~\ref{sec:computing},
+to render images.  The next generation of distributed systems capable of 
+exascale computation provides an opportunity and in some cases a necessity to 
+redesign current distributed applications.  Two of the main differences that 
+will set exascale systems apart from current distributed systems are the 
+increase in the number of nodes available and the reduction of the memory 
+available per node.  For algorithm designers, this means there will be increased
+communication overhead as data will need to be passed more frequently between 
+individual nodes.
 
 Communication avoiding algorithms have been proposed as a way to reduce 
 communication overhead.  The basic idea is to re-do computation when possible
@@ -45,7 +46,7 @@ little work.
 Determining the optimal design pattern for data decomposition becomes a question
 of whether the cost of pre-processing outweighs the cost of an unbalanced 
 system.  Assuming the pre-processing step were free, computationally speaking, 
-then the solution would be to use it.  This would ensure the minimum number of
+the solution would then be to use it.  This would ensure the minimum number of
 nodes are used and that each one is used to its full potential, memory wise.  
 However since there is a cost to pre-processing we must consider algorithms that
 reduce this cost.  
@@ -55,7 +56,7 @@ cost but requires the use of more nodes then would be needed by a load balanced
 distribution.  In addition, each node may or may not fill the memory available. 
 Since each node need not be responsible for a single chunk of the domain, it is 
 possible of offset this concern and increase memory usage per node by assigning 
-each node multiple chunks of data to each node.
+each node multiple chunks of data.
 
 \begin{figure}[!htb]
 \centering
@@ -63,7 +64,7 @@ each node multiple chunks of data to each node.
   %\footnote{
   %\href{http://www.pbrt.org/scenes_images/sanmiguel\_cam25.jpg}
   %               {http://www.pbrt.org/scenes_images/sanmiguel\_cam25.jpg}}
-\caption{San Miguel Scene}
+\caption{San Miguel example scene}
 \label{fig:san_miguel}
 \end{figure}
 
@@ -77,16 +78,16 @@ machine with eight cores, we might get a distribution such as that shown
 in Figure~\ref{fig:san_miguel_data} b.   This roughly distributes the data 
 evenly between the nodes and positions neighbors on the same cores, giving us a
 setup similar to what a pre-processing step designed to optimally distribute the 
-data may compute.  Before we can conclude on which data decomposition pattern to 
-use we need to consider the communication cost associated with each pattern.
+data may compute.  For simplicity we will use the spatially uniform data 
+distribution algorithm and focus on reducing communication cost.
 
 \begin{figure}[!htb]
 \minipage{0.52\textwidth}
-  \includegraphics[height=3.2cm]{drawings/VoxelDistribution.pdf}
+  \includegraphics[height=3.8cm]{drawings/VoxelDistribution.pdf}
   
-  (a) Triangles per Voxel
+  (a) Triangles per voxel
   
-  \includegraphics[height=3.2cm]{drawings/DataDistribution.pdf}
+  \includegraphics[height=3.8cm]{drawings/DataDistribution.pdf}
   
   (c) Triangles per node  
 \endminipage\hfill
@@ -95,7 +96,7 @@ use we need to consider the communication cost associated with each pattern.
   
   (b) Node distribution  
 \endminipage
-\caption{San Miguel}
+\caption{San Miguel data decomposition example}
 \label{fig:san_miguel_data}
 \end{figure}
 
@@ -115,9 +116,9 @@ may need to communicate with every node.
 Communication is anticipated to be the bottleneck on an exascale system which
 makes reducing communication cost high priority in our algorithm design.  
 Optimally our goal is to create a ray tracing algorithm with distributed data 
-that needs no communication.
+that needs little to no communication.
 
-\subsection{Communication Avoiding Ray Tracing}
+\subsection{Communication avoiding ray tracing}
 \subsubsection{Ray Casting}
 To design a communication avoiding ray tracer we will start with a simple ray
 casting algorithm where only the primary viewing rays are traced. These rays are 
@@ -206,7 +207,7 @@ see Figure~\ref{fig:cubes_3d}.  Each cube is broken into twelve triangles, two
 for each face.  If we distribute the data into eight spatially equal pieces and 
 trace the scene from the camera view shown in Figure~\ref{fig:cubes_3d} b, we 
 will get the eight images shown in Figure~\ref{fig:cubes}.  These eight images 
-can then be composed back to front into the final image, 
+can then be composed back to to produce into the final image, see
 Figure~\ref{fig:cubes_final}.
 
 \begin{figure}[!htb]
@@ -251,13 +252,12 @@ Figure~\ref{fig:cubes_final}.
 
 
 \subsubsection{Secondary light rays; light mesh}
-Expanding on the ray casting algorithm in the previous section, we will now look
-at how we might design similar communication avoiding algorithms to implement a 
-full ray tracer.  We will first tackle secondary light rays, these are rays cast
-from an intersection point to a light source.  To correctly compute shadows, it 
-is important to know if the ray intersects with any other objects in the scene 
-anywhere along its path from the intersection point of the object to the light 
-source.  
+Expanding on the ray casting algorithm, we will now look at how we might design 
+similar communication avoiding algorithms to implement a full ray tracer.  We 
+will first tackle secondary light rays, these are rays cast from an intersection
+point to a light source.  To correctly compute shadows, it is important to know 
+if the ray intersects with any other objects in the scene anywhere along its 
+path from the intersection point of the object to the light source.  
 
 Shadow ray calculations could result in a significant amount of communication if
 done during runtime.  Since we are looking at static scenes, determining if a 
@@ -269,8 +269,8 @@ rays are propagated they can be marked as in shadow or not.  As the light rays
 reach a new voxel, they produce a mesh on the facing wall.  Each vertex in the 
 mesh then would contain either an indicator that the vertex is in shadow or the 
 direction and illumination information from its light source, 
-see Figure~\ref{fig:light}.  Additional information on implementation can be 
-found in Section~\ref{sec:proposed_algorithm}.
+see Figure~\ref{fig:light-distribution}.  Additional information on 
+implementation can be found in Section~\ref{sec:proposed_algorithm}.
 
 \begin{figure}[!htb]
 \centering
@@ -284,19 +284,19 @@ found in Section~\ref{sec:proposed_algorithm}.
   \includegraphics[width=.98\columnwidth]{drawings/Lights2.pdf}
   \caption{Computed light mesh}
 \end{subfigure}
-\caption{Light Ray Distribution}
-\label{fig:light}
+\caption{Light ray distribution}
+\label{fig:light-distribution}
 \end{figure}
 
-This light mesh can then be used at runtime by the voxel computation to compute 
-secondary light rays without needing to communicate with any other voxel.  The 
-individual voxel, using the location of each light source can compute rays from 
-an intersection point to each light source.  At the intersection of the ray to a
-voxel wall, the corresponding light mesh will be used to determine the correct
-illumination necessary for the intersection point.  A nearest neighbor or 
-averaging algorithm can be used to determine which vertex in the mesh is closest
-to the intersection point.  The information from the vertex can then be used for
-the illumination calculation.
+The computed light mesh can be used at runtime by the voxel computation to 
+compute secondary light rays without needing to communicate with any other 
+voxel.  The individual voxel, using the location of each light source can 
+compute rays from an intersection point to each light source.  At the 
+intersection of the ray to a voxel wall, the corresponding light mesh will be 
+used to determine the correct illumination necessary for the intersection point.
+A nearest neighbor or averaging algorithm can be used to determine which vertex 
+in the mesh is closest to the intersection point.  The information from the 
+selected vertex or vertices can then be used for the illumination calculation.
 
 \subsubsection{Secondary reflected rays; material mesh}
 A second set of secondary rays is needed to compute reflected rays.  A technique 
@@ -327,8 +327,8 @@ light and material meshes rely on the rays keeping a straight trajectory.  The
 same assumption is made to compute the intersection of the primary viewing rays
 and each voxel they intersect with.  If a ray refracts in one voxel, the 
 subsequent voxels would need to know the new intersection point of that ray and 
-their wall along with the rays new direction.  A potential solution to implement
-refracted rays is presented in Section\~ref{sec:future-work}.
+their wall, along with the rays new direction.  A potential solution to 
+implement refracted rays is presented in Section~\ref{sec:future-work}.
 
 \section{Proposed Algorithm}
 \label{sec:proposed_algorithm}
@@ -383,8 +383,8 @@ resulting data sets, see Figure~\ref{fig:ray_tracing_1}.
 
 \subsection{Distribute rays}
 The transition, \emph{DISTRIBUTE\_RAYS} takes a camera position as input and
-produces a set of \emph{rays} viewing rays.  \emph{Primary Viewing Rays} are the
-resulting computing sets.
+produces a set of viewing rays.  \emph{Primary Viewing Rays} are the resulting 
+computed sets.
 
 \begin{figure}[!htb]
 \minipage{0.4\textwidth}
@@ -454,20 +454,20 @@ return material_meshes
 \subsection{Trace lights}
 The transition, \emph{TRACE\_LIGHTS} fires for each light in the domain and
 uses the voxel data sets to produce a light mesh for each light for each
-voxel.  \emph{Light Mesh} is the resulting mesh.  See 
+voxel.  \emph{Light Mesh} is the resulting mesh.  Pseudo code can be found in 
 Figure~\ref{fig:ray_tracing_2} a.
 
 \subsection{Trace reflectors}
 The transition, \emph{TRACE\_REFLECTORS} fires once for each scene and produces a
 material mesh for every reflector in the scene for each voxel.  \emph{Reflector
 Material Mesh} is the resulting mesh.  The pseudo code for trace reflectors is
-similar to the pseudo code for trace lights, see Figure~\ref{fig:ray_tracing_2} 
-b.
+similar to the pseudo code for trace lights and is presented in
+ Figure~\ref{fig:ray_tracing_2} b.
 
 \subsection{Trace voxel}
 The transition, \emph{TRACE\_VOXEL} fires once for each voxel and produces a 
 copy of the viewing rays with computed color information.  \emph{Traced Rays} 
-are the resulting rays.  This transition will use the light meshes created for 
+are the resulting rays.  This transition uses the light meshes created for 
 its voxel along with the material meshes.  It will also need the primary viewing 
 rays and the lights.  Pseudo code for trace voxel can be found in 
 Figure~\ref{fig:ray_caster}.  Pseudo code for the helper method 
@@ -505,7 +505,7 @@ scenes with multiple light sources and reflector material types.  Scenes with
 refracted materials types are not supported.  The details on how the tracing
 algorithm uses the light and material meshes can be found in 
 Section~\ref{sec:implementation}.  A summary of the use cases handled and not 
-handled can be seen in Figure\~ref{fig:use-cases}.
+handled can be seen in Figure~\ref{fig:use-cases}.
 
 
 
