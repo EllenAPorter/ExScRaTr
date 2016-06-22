@@ -116,10 +116,11 @@ may need to communicate with every node.
 Communication is anticipated to be the bottleneck on an exascale system which
 makes reducing communication cost high priority in our algorithm design.  
 Optimally our goal is to create a ray tracing algorithm with distributed data 
-that needs little to no communication.
+that needs little to no communication.  We explore how we might design a 
+communication avoiding ray tracer in this section.
 
-\subsection{Communication avoiding ray tracing}
-\subsubsection{Ray Casting}
+\subsection{Communication avoiding ray casting}
+\label{sec:ca-ray-casting}
 To design a communication avoiding ray tracer we will start with a simple ray
 casting algorithm where only the primary viewing rays are traced. These rays are 
 cast into a scene from the eye position.  If they intersect with an object, the 
@@ -251,7 +252,9 @@ Figure~\ref{fig:cubes_final}.
 \end{figure}
 
 
-\subsubsection{Secondary light rays; light mesh}
+\subsection{Communication avoiding ray tracing}
+\label{sec:ca-ray-tracing}
+
 Expanding on the ray casting algorithm, we will now look at how we might design 
 similar communication avoiding algorithms to implement a full ray tracer.  We 
 will first tackle secondary light rays, these are rays cast from an intersection
@@ -260,17 +263,17 @@ if the ray intersects with any other objects in the scene anywhere along its
 path from the intersection point of the object to the light source.  
 
 Shadow ray calculations could result in a significant amount of communication if
-done during runtime.  Since we are looking at static scenes, determining if a 
-particular ray is in shadow can be pre-computed.  Similar to the ray casting 
-algorithm, we can cast rays into the scene from each light source.  Instead of 
-sending all rays to all voxels however, we will need to propagate the rays 
-through the scene, starting with the light source and moving outward.  As the 
-rays are propagated they can be marked as in shadow or not.  As the light rays 
-reach a new voxel, they produce a mesh on the facing wall.  Each vertex in the 
-mesh then would contain either an indicator that the vertex is in shadow or the 
-direction and illumination information from its light source, 
-see Figure~\ref{fig:light-distribution}.  Additional information on 
-implementation can be found in Section~\ref{sec:proposed_algorithm}.
+done during runtime.  To reduce this cost, we introduce a technique that 
+distributes light information to each voxel prior to runtime.  Similar to the 
+ray casting algorithm, we can cast rays into the scene from each light source.  
+Instead of sending all rays to all voxels however, we will need to propagate the
+rays through the scene, starting with the light source and moving outward.  As
+the rays are propagated they can be marked as in shadow or not.  As the light
+rays reach a new voxel, they produce a mesh on the facing wall.  Each vertex in
+the mesh then would contain either an indicator that the vertex is in shadow or
+the direction and illumination information from its light source, see 
+figure~\ref{fig:light-distribution}.  Additional information on 
+implementation can be found in section~\ref{sec:proposed_algorithm}.
 
 \begin{figure}[!htb]
 \centering
@@ -288,7 +291,7 @@ implementation can be found in Section~\ref{sec:proposed_algorithm}.
 \label{fig:light-distribution}
 \end{figure}
 
-The computed light mesh can be used at runtime by the voxel computation to 
+The computed light is then used at runtime by the voxel computation to 
 compute secondary light rays without needing to communicate with any other 
 voxel.  The individual voxel, using the location of each light source can 
 compute rays from an intersection point to each light source.  At the 
@@ -298,18 +301,31 @@ A nearest neighbor or averaging algorithm can be used to determine which vertex
 in the mesh is closest to the intersection point.  The information from the 
 selected vertex or vertices can then be used for the illumination calculation.
 
-\subsubsection{Secondary reflected rays; material mesh}
-A second set of secondary rays is needed to compute reflected rays.  A technique 
-similar to the light meshes could be used, where a mesh is computed from each 
-reflected material and distributed outward to each voxel.  Instead of holding 
-light and shadow information the vertices of the mesh would contain material
-information from the first object intersected.  Each voxel computation would 
-then use the material mesh to determine the correct color for a reflected ray.
-Each voxel would need access to all the material meshes in the case where a 
-reflected ray reflects to another reflector.  See
-Section~\ref{sec:proposed_algorithm} for implementation details.
+\subsubsection{Reflected and refracted rays}
+Although not implemented within the scope of this thesis, we introduce a 
+potential communication avoiding strategy for handling reflected and refracted 
+rays.  For refracted rays, a technique similar to the light meshes could be 
+used, where a mesh is computed from each reflected material and distributed 
+outward to each voxel.  Instead of holding light and shadow information the 
+vertices of the mesh would contain material information from the first object 
+intersected.  Each voxel computation would then use the material mesh to 
+determine the correct color for a reflected ray.  Each voxel would need access 
+to all the material meshes in the case where a reflected ray reflects to another
+reflector.  See section~\ref{sec:future-work} for additional details.
 
-If the scene contains little or no reflected rays, the overhead of computing the
+Refractor materials which change the trajectory of the rays that pass through 
+them could be supported by the proposed algorithm through the use of a restart 
+capability.  The underlying assumptions to compute the light and material meshes
+rely on the rays maintaining a straight trajectory.  The same assumption is made
+to compute the intersection of the primary viewing rays and each voxel they
+intersect with.  If a ray refracts in one voxel, the subsequent voxels would
+need to know the new intersection point of that ray and their wall, along with
+the rays new direction.  If we could detect when rays refract within a voxel and
+invalidate the computations being done with non-refracted rays, we could restart
+them with the correct rays.  Details on this technique can be found in 
+section~\ref{sec:future-work}.
+
+If a scene contains little or no reflected rays, the overhead of computing the
 material meshes may outweigh the cost of communicating reflected rays at 
 runtime.  If the material meshes and the light meshes are used however 
 communication cost would be reduced to one pass through the domain for each 
@@ -319,25 +335,16 @@ back the final results of the traced rays.  The use of meshes however, results
 in an approximation of the result produced by a conventional ray tracer due to 
 the nearest neighbor or averaging used when a ray intersects the mesh.
 
-\subsubsection{Refracted rays}
-Refracted materials which change the trajectory of the rays that pass through 
-them are not handled by the proposed algorithm, see 
-Section~\ref{sec:proposed_algorithm}.  The underlying assumptions to compute the
-light and material meshes rely on the rays keeping a straight trajectory.  The
-same assumption is made to compute the intersection of the primary viewing rays
-and each voxel they intersect with.  If a ray refracts in one voxel, the 
-subsequent voxels would need to know the new intersection point of that ray and 
-their wall, along with the rays new direction.  A potential solution to 
-implement refracted rays is presented in Section~\ref{sec:future-work}.
-
 \section{Proposed Algorithm}
-\label{sec:proposed_algorithm}
-Reducing communication as described in Section~\ref{sec:communication} and using
-the spatially even data distribution algorithm described in 
-Section~\ref{sec:data_decomposition} allows us to design the communication 
+\label{sec:proposed-algorithm}
+Using a spatially even data distribution algorithm as described in 
+section~\ref{sec:data_decomposition} and reducing communication as described in 
+section~\ref{sec:communication} allows us to design the communication 
 avoiding ray tracer outlined in Figure~\ref{fig:design}.  The figure shows a 
 Petri Net, see Section~\ref{sec:petri-nets}, describing the main components of 
-the algorithm.  The following sections break down each place and transition.
+a full ray tracing algorithm.  The following sections break down each place and
+transition.  For the scope of this thesis we have implemented the highlighted 
+section, details can be found in chapter ~\ref{sec:implementation}.
 
 \begin{figure}[!htb]
 \centering
@@ -349,8 +356,8 @@ the algorithm.  The following sections break down each place and transition.
 \subsection{Inputs}
 The required inputs for the ray tracer are three places; lights, scene, and 
 camera position.  There will be a single scene with potentially many lights.  
-Additionally many camera positions can be traced, but each pass through the 
-\emph{TRACED\_RAYS} will use a single camera position.  The labels on the arcs 
+Additionally many camera positions can be traced, but each pass through 
+\emph{traced rays} will use a single camera position.  The labels on the arcs 
 indicate the quantity relationships.
 
 \begin{figure}[!htb]
@@ -370,6 +377,7 @@ DISTRIBUTE_DATA(scene, v)
   end for
 return voxels
 \end{algorithm}
+
 Distribute data
 \endminipage\hfill
 \caption{Ray tracer pseudo code}
@@ -377,14 +385,15 @@ Distribute data
 \end{figure}
 
 \subsection{Distribute data}
-The transition, \emph{DISTRIBUTE\_DATA} takes a scene as an input and produces 
+The transition, \textbf{distribute\_data} takes a scene as an input and produces 
 \emph{v} subsets of the data, one for each voxel.  \emph{Voxel Data} contins the
 resulting data sets, see Figure~\ref{fig:ray_tracing_1}.
 
 \subsection{Distribute rays}
-The transition, \emph{DISTRIBUTE\_RAYS} takes a camera position as input and
-produces a set of viewing rays.  \emph{Primary Viewing Rays} are the resulting 
-computed sets.
+The transition, \textbf{distribute\_rays} takes either a camera position as input 
+or information regarding refracted rays from the output of a voxel computation 
+and produces a set of viewing rays.  \emph{Primary Viewing Rays} are the 
+resulting computed sets.
 
 \begin{figure}[!htb]
 \minipage{0.4\textwidth}
@@ -452,61 +461,60 @@ return material_meshes
 \end{figure}
 
 \subsection{Trace lights}
-The transition, \emph{TRACE\_LIGHTS} fires for each light in the domain and
+The transition, \textbf{trace\_lights} fires for each light in the domain and
 uses the voxel data sets to produce a light mesh for each light for each
 voxel.  \emph{Light Mesh} is the resulting mesh.  Pseudo code can be found in 
 Figure~\ref{fig:ray_tracing_2} a.
 
 \subsection{Trace reflectors}
-The transition, \emph{TRACE\_REFLECTORS} fires once for each scene and produces a
-material mesh for every reflector in the scene for each voxel.  \emph{Reflector
-Material Mesh} is the resulting mesh.  The pseudo code for trace reflectors is
-similar to the pseudo code for trace lights and is presented in
+The transition, \textbf{trace\_reflectors} fires once for each scene and 
+produces a material mesh for every reflector in the scene for each voxel.  
+\emph{Reflector Material Mesh} is the resulting mesh.  The pseudo code for trace 
+reflectors is similar to the pseudo code for trace lights and is presented in
  Figure~\ref{fig:ray_tracing_2} b.
 
 \subsection{Trace voxel}
-The transition, \emph{TRACE\_VOXEL} fires once for each voxel and produces a 
+The transition, \textbf{trace\_voxel} fires once for each voxel and produces a 
 copy of the viewing rays with computed color information.  \emph{Traced Rays} 
 are the resulting rays.  This transition uses the light meshes created for 
 its voxel along with the material meshes.  It will also need the primary viewing 
 rays and the lights.  Pseudo code for trace voxel can be found in 
 Figure~\ref{fig:ray_caster}.  Pseudo code for the helper method 
-\emph{COMPUTE\_COLOR} is included in Section~\ref{sec:implementation}.
+\textbf{compute\_color} is included in Section~\ref{sec:implementation}.
 
 
 \begin{figure}[!htb]
 \minipage{0.45\textwidth}
   \includegraphics[width=6cm]{drawings/Case_1.pdf}
   
-  (a) Light rays with no obstruction, handled by light mesh
+  (a) Light rays with no obstruction; handled by light mesh
   
   \includegraphics[width=6cm]{drawings/Case_3.pdf}
   
-  (c) Reflected rays, handled by material mesh
+  (c) Reflected rays; handled by material mesh
   
 \endminipage\hfill
 \minipage{0.45\textwidth}
   \includegraphics[width=6cm]{drawings/Case_2.pdf}
   
-  (b) Light rays with obstruction, handled by light mesh
+  (b) Light rays with obstruction; handled by light mesh
   
   \includegraphics[width=6cm]{drawings/Case_4.pdf}
   
-  (d) Refracted rays, not supported
+  (d) Refracted rays; handled by restart
   
 \endminipage
-\caption{Ray tracing scene use cases}
+\caption{Ray tracing algorithm cases}
 \label{fig:use-cases}
 \end{figure}
 
-
 The algorithm presented here will handle ray casting as well as ray tracing for
-scenes with multiple light sources and reflector material types.  Scenes with
-refracted materials types are not supported.  The details on how the tracing
-algorithm uses the light and material meshes can be found in 
-Section~\ref{sec:implementation}.  A summary of the use cases handled and not 
-handled can be seen in Figure~\ref{fig:use-cases}.
-
+scenes with multiple light sources as well as materials with reflection and
+refraction material types.  The light mesh implementation can be found in 
+section~\ref{sec:implementation}.  Additional detials on material meshse and the 
+restart technique proposed for refracted rays can be found in section
+~\ref{sec:future-work}.  A summary of the use cases supported are outlined in
+figure~\ref{fig:use-cases}.
 
 
 

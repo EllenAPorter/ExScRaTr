@@ -1,32 +1,38 @@
-
-When designing our ray tracing prototype for exascale we focused on
-two key aspects: (a) producing a task based application with (b) an
-emphasis on avoiding communication. For simplicity, we consider here
-only ray tracing scenes without reflection or refraction, although our
-proposed algorithm can be extended to handle either in the future. Our
-algorithm uses a simple voxel decomposition to split the work required
-to trace a scene (which we will henceforth refer to as a ``domain'').
-
-Primary camera rays are then sent into the system and propagate
-through the domain. As secondary rays introduce most of the uncertainty
-in the amount of communication necessary in a ray tracing algorithm,
-we introduce a pre-processing technique that distributes light
-information to each voxel prior to tracing the domain. This allows the
-ray tracing step within each voxel to be completely independent of the
-data in the rest of the domain. Using this algorithm we can predict an
-upper bound on the amount of communication necessary (a domain that
-contains no data), and extrapolate from there rough estimates on how
-our algorithm might perform on an exascale system.
-
-\section{Implementation}
 \label{sec:implementation}
 
-We chose to implement our ray tracer using Intel’s implementation of
-CnC, which is built on top of their Thread Building Blocks (TBB)
-library. This runs on today’s multicore systems but has the potential
-to do so on anticipated exascale systems.
+This chapter describes the implementation of a task-based communication avoiding
+ray tracing algorithm designed for future exascale distributed systems. The
+system is implemented using CnC, see section~\ref{sec:cnc}, and is integrated
+with Embree, see section~\ref{sec:embree}.  The algorithm presented supports 
+primary rays and secondary light rays, additional details on the design can be 
+found in section~\ref{sec:design}.  We start with an overview of the CnC graph 
+file and then discuss specific implementation details.
 
-% apparently putting this here makes it show up on the top of page 3, where I want it
+When designing our ray tracing algorithm for exascale we focused on two key 
+aspects: (a) producing a task-based application with (b) an emphasis on avoiding
+communication. For simplicity, we considered only ray tracing scenes without
+reflection or refraction, although our proposed algorithm, found in 
+section~\ref{sec:proposed-algorithm} can be extended to handle either.  
+Suggested algorithms for implementing those extensions can be found in section 
+~\ref{sec:future-work}. The algorithm presented here uses a uniform spatial 
+voxel decomposition to split the work required to trace a scene, or domain.
+
+Primary camera rays are sent to each voxel of the domain.  As secondary rays 
+introduce most of the uncertainty in the amount of communication necessary in a 
+ray tracing algorithm, we introduce a pre-processing technique that distributes
+light information to each voxel prior to tracing the domain. This allows the ray
+tracing step within each voxel to be completely independent of the data in the 
+rest of the domain. The results of each voxel trace are then combined to compose 
+the final image.
+
+We chose to implement our ray tracer using Intel’s implementation of CnC, 
+which is built on top of their Thread Building Blocks (TBB) library. This runs 
+on today’s multicore systems but has the potential to run on anticipated 
+exascale systems.  We are also using Intel’s ray tracing kernel library, 
+Embree.
+
+\section{CnC Graph}
+
 \begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{drawings/CnC.pdf}
@@ -34,70 +40,57 @@ to do so on anticipated exascale systems.
   \label{fig:cnc}
 \end{figure}
 
-Figure \ref{fig:cnc} shows the graph for our distributed ray tracer.
-It shows data collections, step collections, and the dependencies
-between them. The tags corresponding to each collection are also
-shown. The control collection for the proposed model is static for all
-steps and defined in an initialization step. The graph begins
-execution when the object, lights, and camera data are provided, and
-terminates when it produces an image.
+Figure~\ref{fig:cnc} shows a graphical representation of the CnC graph, a 
+textual version can be found in figure~\ref{fig:cnc-graph-text}.  Step 
+collections  are represented as rectangles and data collections are represented
+with ovals.  The tag collections for specific data or step collections are shown
+in the shape.  The colors are used to group the similar tag collections. The 
+control collection for the proposed model is static for all steps and is defined 
+in an initialization step. The graph begins execution when the object, lights, 
+and camera data are provided, and terminates when an image is produced.
 
-Let us consider the parts of the graph individually.
+\subsection{Tags}
+The tags in CnC can be thought of as a way to index a specific step or data 
+collection.  The elements in our tags are \textbf{frame}, \textbf{i}, 
+\textbf{j}, and \textbf{k}.  The \textbf{frame} tag refers to one specific frame 
+in the case of an animation or multiple views from different camera positions. 
+The \textbf{i}, \textbf{j}, and \textbf{k} tags are iterators over 3D spatial 
+data, selecting a specific voxel. 
 
-\section{Tags}
-
-The tags are different for many of the data and step collections but
-share common elements. The FRAME tag refers to one specific frame in
-the case of an animation. The INSTANCE tag refers to the current
-iteration. The I, J, and K tags are iterators over 3D spatial data,
-selecting a specific voxel. The RAY\_STEP tag allows for multiple
-traversals of the same voxel in the same frame for secondary rays.
-
-\section{Data Collections}
+\subsection{Data Collections}
 \label{sec:datacollections}
 
-The OBJECT data collection contains input data for the domain from the
+The \textbf{object} data collection contains input data for the domain from the
 environment. Currently, this data is extracted from WaveFront
-``\texttt{.obj}'' files. The DECOMPOSE\_DOMAIN step collection
-partitions this data into voxels, producing the VOXEL\_OBJECT data
+``\texttt{.obj}'' files. The \textbf{decompose\_domain} step collection
+partitions this data into voxels, producing the \textbf{voxel\_object} data
 collection. Objects that span multiple voxels are duplicated. The
-LIGHTS data collection contains data pertaining to light sources. The
-VOXEL\_LIGHT data collection contains the same information as LIGHTS
-plus a traced light mesh for each wall of a voxel. The CAMERA data
-collection contains the location and direction of the camera. The
-RAY\_PACKET data collection contains all the rays that intersect a
-voxel wall for a given wall and iteration. The IMAGE data collection
-contains the final image data.
+\textbf{lights} data collection contains data pertaining to light sources. The
+\textbf{voxel\_light} data collection contains the same information as 
+\textbf{lights} plus a traced light mesh for each wall of a voxel. The 
+\textbf{camera} data collection contains the location and direction of the 
+camera. The \textbf{ray} and \textbf{traced\_ray} data collections contain the 
+primary rays. The \textbf{image} data collection contains the final image data.
 
-\section{Step Collections}
+\subsection{Step Collections}
 
-Recall that these are where the computation is done. They may be
-implemented in any programming language CnC supports, which is most of
-them.
-
-\subsection{DECOMPOSE\_DOMAIN}
-
-As mentions in Section~\ref{sec:datacollections} the DECOMPOSE\_DOMAIN
+As mentions in Section~\ref{sec:datacollections} the \textbf{decompose\_domain}
 step takes the data to be traced as input and produces subsets of that
 data based on voxel decomposition. As load balancing is not a concern,
 a uniformly-gridded voxel decomposition is sufficient. The number of
 voxels produced is set at runtime and should be more than the number
 of nodes available.
-% RRL: Is this really a constraint?
-
-\subsection{DISTRIBUTE\_LIGHTS}
 
 In order to reduce the communication of secondary rays,
-the DISTRIBUTE\_LIGHTS step is responsible for distributing light
-information to each voxel. This guarantees each voxel will only need
-to communicate with its direct neighbors. The light information
+the \textbf{distribute\_lights} step is responsible for distributing light
+information to each voxel. This guarantees each voxel will not need
+to communicate with any other voxels. The light information
 produced for each voxel contains the original light sources as well as
 a light source mesh for each light and each wall of the voxel. The
 mesh is produced by tracing rays from each light source to uniformly
-spaced points along a voxel wall, see Figure \ref{fig:light}. Where
-the rays intersect the wall, new point or directional light sources
-are created. If the ray is blocked, the node in the light mesh is
-tagged as in shadow.
+spaced points along a voxel wall.  Where the rays intersect the wall light 
+information is stored, producing the mesh. If the ray is blocked, the ray in 
+the light mesh is tagged as in shadow, see figure ~\ref{fig:light2}.
 
 \begin{figure}[!htb]
 \centering
@@ -109,147 +102,256 @@ tagged as in shadow.
 \begin{subfigure}{0.49\textwidth}
  \centering
   \includegraphics[width=.98\columnwidth]{drawings/Lights2.pdf}
-  \caption{Point light sources}
+  \caption{Computed light mesh}
 \end{subfigure}
-\caption{Light Ray Distribution}
-\label{fig:light}
+\caption{Light ray distribution}
+\label{fig:light2}
 \end{figure}
 
-\subsection{DISTRIBUTE\_RAYS}
+The \textbf{distribute\_rays} step is responsible for computing and distributing
+the primary rays. 
 
-The DISTRIBUTE\_RAYS step is responsible for sending each voxel its
-first iteration of ray information. This is an empty set of data for
-all voxels except the voxel containing the camera if the camera is
-positioned within the domain. If the camera is outside the domain
-(e.g. in an orthographic view), multiple voxels may be initialized.
+\textbf{trace\_voxel} is the heart of the application. This step executes once 
+for each voxel.  It traces the primary rays over its subset of the domain. If a 
+ray intersects with an object the color is computed for the point. To determine 
+illumination information, secondary rays from each light source are computed and 
+the light mesh is used.  Rays that do not intersect objects within the voxels 
+are left uncolored.  The step produces copies of the traced rays with the color 
+either set or not if the ray intersected an object.
 
-\subsection{TRACE\_VOXEL}
+When all \textbf{trace\_voxel} steps have completed, the \textbf{produce\_image}
+step merges the \textbf{traced\_rays} to compose the final image.  
+Figure~\ref{fig:trace} a shows the primary rays as computed by the 
+\textbf{distribute\_rays} step.  Figure~\ref{fig:trace} b shows the results of 
+each voxel tracing the primary rays.  The rays that intersected each voxel are 
+displayed and colored based on intersected objects.
 
-The TRACE\_VOXEL step is the heart of the application. This step
-executes multiple times for each voxel, depending on the size of the
-domain. Each time TRACE\_VOXEL executes, it consumes ray packets from
-each of its neighbors. It then traces the rays over its subset of the
-domain. If a ray intersects with an object, secondary rays from each
-light source are considered if the corresponding point or directional
-light source from the voxels light mesh is not in shadow.
-
-Rays that do not intersect objects within the voxels and reach the
-voxels walls are collected and passed to the corresponding neighbor on
-the next iteration. See Figure~\ref{fig:trace}. Because we are not
-considering reflection or refraction, we know the maximum amount of
-times we will have to communicate a single ray across voxel borders in
-the worst case is proportional to domain size. This allows us to
-prescribe the a maximum number of instances of TRACE\_VOXEL in an
-initialization step. For the example in Figure~\ref{fig:trace}, that
-maximum is 3. As each step will eventually be executed on a single
-node of a cluster we plan to implement TRACE\_VOXEL using Embree,
-Intel’s ray tracing kernel, in order to optimize per node performance.
-
-\begin{figure}[!htb]
+\begin{figure}[!hb]
 \centering
 \begin{subfigure}{.49\columnwidth}
  \centering
   \includegraphics[width=.98\columnwidth]{drawings/Trace1.pdf}
-  \caption{Distribute rays}
+  a) Distribute rays
 \end{subfigure}
 \begin{subfigure}{.49\columnwidth}
  \centering
   \includegraphics[width=.98\columnwidth]{drawings/Trace2.pdf}
-  \caption{Trace voxel; ray step 1}
+  b) Trace voxel
 \end{subfigure}
-\begin{subfigure}{.49\columnwidth}
- \centering
-  \includegraphics[width=.98\columnwidth]{drawings/Trace3.pdf}
-  \caption{Trace voxel; ray step 2}
-\end{subfigure}
-\begin{subfigure}{.49\columnwidth}
- \centering
-  \includegraphics[width=.98\columnwidth]{drawings/Trace4.pdf}
-  \caption{Trace voxel; ray step 3}
-\end{subfigure}
-\caption{Trace Voxel}
+\caption{Ray tracing example}
 \label{fig:trace}
 \end{figure}
 
-\subsection{PRODUCE\_IMAGE}
-When all steps in TRACE\_VOXEL have completed, the final set of ray
-packets is produced. Each ray in that packet contains the information
-that may be necessary to produce the final image. Merging these is the
-responsibility of the PRODUCE\_IMAGE step.
+\newpage
 
-\section{Textual CnC Graph File}
-To give a more concrete example of how the CnC graph file is
-implemented, we include a simplified version of the textual
-representation of TRACE\_VOXEL in Figure~\ref{fig:tracevoxel}. In
-addition to the step declaration, the code includes the SCENE and
-RAY\_PACKET data collections as well as the control dependencies from
-the environment for TRACE\_VOXEL.
+\section{Algorithm}
+The implemented ray tracer can be broken down into the five step collections
+outlined in the CnC graph file.  Pseudo code for each step is presented in this
+section.  We walk through an example use case in chapter~\ref{sec:evaluation}.
 
-% Code..
-\begin{figure*}[t!]
-  \begin{center}
-    
-\begin{lstlisting}[basicstyle=\ttfamily]
-/******************************************************************************
-//* Item collection declarations */
+\subsection{Decompose domain}
+Decompose domain reads and splits a .obj file into voxel subsets.  The amount of
+voxels the domain is divided into is up to the user at runtime.  Pseudo code can
+be found in figure~\ref{fig:decompose-domain}.  
 
-// data for each voxel, produced by decompose_domain
-[ voxel_object *voxel : frame, i, j, k ];
+\begin{figure}[!htb]
+\begin{algorithm}
+DECOMPOSE_DOMAIN(scene, v)
+  in:  the scene to be traced
+       number of voxels, v
+  out: v subsets of data
+  voxels[v]
+  for all voxel in voxels do
+    for all trangles in scene do
+      if trangle is in voxel then
+        voxel.data.add(trangle)
+      end if
+    end for
+  end for
+return voxels
+\end{algorithm}
+\caption{Decompose domain pseudo code}
+\label{fig:decompose-domain}
+\end{figure}
 
-// ray data passed to neighbors, produced by camera and trace_voxel
-[ ray_packet *rays : frame, ray_step, neighbor, i, j, k ];
+The code implemented supports quad and triangle geometry as well as materials.  
+As Embree does not support textures, any material using a texture is modified to
+use a solid color.  A triangle or quad is considered in a voxel if any of its
+vertices are in the voxel.  This results in geometry that crosses voxel walls 
+being duplicated in neighboring voxels. 
 
-/******************************************************************************
-//* CnC steps */
+\subsection{Distribute lights}
+\label{sec:distribute-lights}
+Distribute lights generates light meshes for each light source.  The light 
+meshes can be thought of as a mesh of vertices on each voxel wall.  Each vertex
+in the mesh contains light information that can be used by the voxel computation
+to illuminate any point the viewing rays intersect.  Pseudo code for the 
+algorithm can be found in figure~\ref{fig:distribute-lights}. 
 
-( trace_voxel : frame, ray_step, i, j, k )
-<- [ voxel: frame, i, j, k],
-   [ rays : frame, ray_step  , 0, i  , j  , k   ] $when(i<#voxels_i-1),
-   [ rays : frame, ray_step  , 1, i  , j  , k   ] $when(i>0),
-   [ rays : frame, ray_step  , 2, i  , j  , k   ] $when(j<#voxels_j-1),
-   [ rays : frame, ray_step  , 3, i  , j  , k   ] $when(j>0),
-   [ rays : frame, ray_step  , 4, i  , j  , k   ] $when(k<#voxels_k-1),
-   [ rays : frame, ray_step  , 5, i  , j  , k   ] $when(k>0)
--> [ rays : frame, ray_step+1, 0, i-1, j  , k   ] $when(i>0),
-   [ rays : frame, ray_step+1, 1, i+1, j  , k   ] $when(i<#voxels_i-1),
-   [ rays : frame, ray_step+1, 2, i  , j-1, k   ] $when(j>0),
-   [ rays : frame, ray_step+1, 3, i  , j+1, k   ] $when(j<#voxels_j-1),
-   [ rays : frame, ray_step+1, 4, i  , j  , k-1 ] $when(k>0),
-   [ rays : frame, ray_step+1, 5, i  , j  , k+1 ] $when(k<#voxels_k-1);
+\begin{figure}[!htb]
+\begin{algorithm}
+DISTRIBUTE_LIGHTS(lights, voxels) 
+  in:  lights in the scene
+       voxel data
+  out: light mesh for each voxel
+  for all light in lights do
+    light_mesh = false;
+    for all voxel in voxels do 
+      if not light_mesh then
+        light_mesh = 
+          COMPUTE_MESH(light, voxel)
+      else
+        light_mesh = 
+          PROPIGATE_MESH(light_mesh, 
+                       light, voxel)
+      end if
+      light_mesh_ = COPY(light_mesh)
+      voxel.light_meshes.add(light_mesh_)
+    end for
+  end for
+return voxels
+\end{algorithm}
+\caption{Distribute lights pseudo code}
+\label{fig:distribute-lights}
+\end{figure}
 
-/******************************************************************************
-//* Input output relationships from environment */
+For each light in the scene, distribute lights creates light ray samples from
+the light and distributes them into the domain.  Currently the algorithm 
+supports directional and point light sources, but could be extended to support 
+other types.  Each ray sample generated is cast into the scene starting with the
+closest voxel and propagating outward.  The density of the samples is set by the
+user at runtime.  If the rays intersect an object within a voxel the ray is 
+marked as in shadow before being propagated to the next voxel.  This results in 
+a mesh of rays, originating on each voxel wall marked as either in or not in
+shadow.  The mesh also contains information about which light source it was 
+generated from.  
 
-( $initialize: () )
--> (trace_voxel : $range(0, #num_frames), $range(0, #ray_steps),
-           $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k));
+\subsection{Distribute rays}
+Distribute rays is responsible for computing all the primary rays from a camera
+position.  The distribution of the primary rays is handled by the Embree core
+ray tracing library and is not presented here.
 
-\end{lstlisting} 
-  \end{center}
-  
-  \caption{The TRACE\_VOXEL Section of the CnC Graph File. This has
-    been somewhat simplified for readability.}
-  \label{fig:tracevoxel}
-\end{figure*}
+\subsection{Trace voxel}
+label{sec:trace-voxel}
+Trace voxel uses the voxel data set, the light meshes, and the primary rays to 
+trace its subset of the scene.  This method produces a traced copy of the 
+primary rays with color information on the rays that intersect objects within 
+the voxels subset of the domain.  Pseudo code can be found in 
+figure~\ref{fig:trace-voxel}.
 
-Under the \emph{Item collection declaration} section we see two item
-collections being declared. Once for the domain and one for the ray
-packets. Instances of the domain indexed using frame, i, j, and k
-which correspond to the frame in the case of an animation and the
-3-dimensional identifier for a given voxel. Ray packets are indexed
-similarly but also include an entry for the current ray step as well
-as a neighbor identifier.
+\begin{figure}[!htb]
+\begin{algorithm}
+TRACE_VOXEL(rays)
+  in: all primary rays
+  out: all primary rays with color computed
+  for all ray in rays do
+    if ray intersects scene then
+      for all light in lights do
+        light_ray <- RAY(ray, light)
+        if not light_ray intersects scene
+          if voxel.light_meshes[light].
+            CLOSEST(light_ray).IS_IN_SHADOW
+              ray.color += COMPUTE_COLOR(ray, light)  
+          end if           
+        end if      
+      end for
+    else
+      ray.color <- FALSE
+    end if
+  end for
+return rays
+\end{algorithm}
+\caption{Trace voxel pseudo code}
+\label{fig:trace-voxel}
+\end{figure}
 
-Under \emph{CnC steps} we see the declaration for TRACE\_VOXEL. Each
-TRACE\_VOXEL step is indexed using the frame, the voxels i, j, k and
-the current ray step. The specific instances of the domain and ray
-data consumed and produced by TRACE\_VOXEL can be declared using the
-RAY\_STEP tag. The step will always consume its scene data. It may
-then consume an incoming ray packet and/or produce an outgoing ray
-packet for each of the voxel's interior walls.
+The Embree library is used to determine if the primary rays intersect the scene.
+Only rays that intersect the scene are colored.  The algorithm to determine the
+color at an intersection point is close to that of a typical ray tracer, but has
+been modified to use the light mesh to determine if light rays intersected an 
+object outside the current voxels subset of data.  
 
-Under \emph{Input output relationships from environment} we see the
-control for TRACE\_VOXEL. In the initialize step we will produce an
-instance of TRACE\_VOXEL for every frame in our animation, for every
-step in our ray steps, and for each voxel in our scene's
-decomposition.
+A typical ray tracer calculates a light ray from each intersection point to each 
+light source.  The light rays are then cast into the scene towards the light, if
+they intersect an object, the ray is considered as in shadow and no light 
+contribution is considered to illuminate the intersection point.  Our algorithm
+has pre-calculated a sampling of the light rays in the light mesh and can use 
+this information to replace casting the lights into the entire domain.
+
+For each intersection point, light rays are calculated towards each light 
+source.  The light ray is cast into the current voxel, if the ray is blocked by
+an object within the current voxels data, we know the ray is in shadow and the
+light mesh is not needed.  If the ray reaches a voxel wall, the light mesh must
+be used to determine if the ray is in shadow or not.  We use a nearest neighbor 
+approach to find the closest vertex on the mesh wall to the intersection point 
+of the light ray and the wall.  If that vertex has been marked as in shadow, we
+consider the light ray as in shadow.  If not, the light is used to illuminate 
+the primary rays intersection point.  This is illustrated in 
+figure~\ref{fig:light-mesh-intersection}.  
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=8cm]{drawings/LightIntersection.pdf}
+  \caption{Light mesh intersection}
+  \label{fig:light-mesh-intersection}
+\end{figure}
+
+Figure~\ref{fig:light-mesh-intersection} shows a viewing ray entering a and
+intersecting a purple sphere.  The light ray from the intersection point to the 
+light source is computed and traced to the voxel wall.  No objects obstruct the
+light ray within the voxel so the light mesh is used to determine if the 
+intersection point is in shadow.  The closest vertices to the light mesh have 
+been highlighted with an orange circle.  The vertex closest to the light ray and 
+voxel wall intersection is the upper right hand corner of the highlighted 
+vertices and is in shadow having been blocked by the blue sphere.
+
+\subsection{Compose image}
+The final method in our algorithm, compose image, takes the results of each
+call to trace voxel and produces the final image.  Pseudo code can be found in
+figure~\ref{fig:compose-image}.  
+
+\begin{figure}[!htb]
+\begin{algorithm}
+COMPOSE_IMAGE(traced_rays[])
+  in: traced rays from each voxel,
+      sorted back to front
+  out: image, a ray traced scene
+  for all rays in traced_rays do
+    for all ray in rays do
+      if(ray.color) then
+        image[ray.orgin.x][ray.orgin.y].color = ray.color;
+      end if
+    end for
+  end for
+return image
+\end{algorithm}
+\caption{Trace voxel pseudo code}
+\label{fig:compose-image}
+\end{figure}
+
+Each ray traced may have intersected an object in multiple voxels.  Since the 
+trace computations are independent and do not communicate, it is up to compose
+image to ensure the final image uses the intersection point closest to the 
+viewer.  We do this by tracing the rays starting with the voxel farthest from
+the view point and working backwards towards the viewer.  For each set of traced
+rays we iterate over the rays.  If the ray has been colored, we color the pixel
+the ray represents.  As we iterate closer to the viewpoint, pixel colors are
+overridden by closer intersections, producing a correct final image. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

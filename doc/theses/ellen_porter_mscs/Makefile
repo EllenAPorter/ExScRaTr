@@ -4,13 +4,7 @@ PRINT = lpr
 PRINTOPTS =
 
 INCLUDED_FILES = \
-	drawings/CnC.pdf \
-	drawings/Lights1.pdf \
-	drawings/Lights2.pdf \
-	drawings/Trace1.pdf \
-	drawings/Trace2.pdf \
-	drawings/Trace3.pdf \
-	drawings/Trace4.pdf \
+	drawings/*.pdf \
 	$(wildcard sec*.tex)
 
 PDF_PREVIEW = evince

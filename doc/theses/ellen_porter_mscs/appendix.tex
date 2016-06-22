@@ -1,0 +1,69 @@
+\begin{figure}[!htb]
+  \begin{center}
+    
+\begin{algorithm}
+/******************************************************************************
+// * CnC Ray Tracer
+// *
+// * Author: Ellen Porter (ellen.porter@wsu.edu)
+// *         Washington State University
+// *
+//****************************************************************************/
+
+/******************************************************************************
+// * Graph parameters */
+$context {
+  int voxels_i;   // decomposed domain size
+  int voxels_j;
+  int voxels_k;
+  int num_frames; // frames to trace
+};
+
+/******************************************************************************
+//* Item collection declarations */
+//object data for each voxel, produced by decompose_domain
+[ voxel_object *object_data : frame, i, j, k ];
+// light data for each voxel, produced by distribute_lights
+[ voxel_light *light_data : frame, i, j, k ];
+// ray data passed to voxels, produced by distribute_rays
+[ rays *primary_rays : frame ];
+// ray data produced by trace_voxel
+[ rays *traced_rays : frame, i, j, k ];
+
+/******************************************************************************
+//* CnC steps */
+( decompose_domain : frame )
+-> [ object_data : frame, 
+     $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k) ];
+( distribute_lights : frame )
+<- [ object_data : frame, 
+     $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k) ]
+-> [ light_data : frame, 
+    $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k) ];
+( distribute_rays : frame )
+-> [ primary_rays : frame ];
+( trace_voxel : frame, i, j, k )
+<- [ object_data  : frame, i, j, k],
+   [ light_data   : frame, i, j, k],
+   [ primary_rays : frame ]
+-> [ traced_rays  : frame, i, j, k];
+(compose_image : frame )
+<- [ traced_rays : frame, 
+     $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k)];
+
+/******************************************************************************
+//* Input output relationships from environment */
+( $initialize: () )
+-> (decompose_domain : $range(0, #num_frames)),
+   (distribute_rays  : $range(0, #num_frames)),
+   (trace_voxel      : $range(0, #num_frames), 
+       $range(0, #voxels_i), $range(0, #voxels_j), $range(0, #voxels_k)),
+   (compose_image    : $range(0, #num_frames));
+( $finalize: () );
+
+\end{algorithm} 
+  \end{center}
+  \caption{Textual CnC graph file}
+  \label{fig:cnc-graph-text}
+\end{figure}
+
