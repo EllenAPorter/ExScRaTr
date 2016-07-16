@@ -1,536 +1,519 @@
-\label{sec:design}
+\label{chpt:design}
 
-Libraries such as Embree (section~\ref{sec:embree}) provide optimized ray 
-tracing algorithms that exploit parallelism on a single machine.  When we look
-at larger data sets that will no longer fit into the memory of a single machine,
-we may consider the use of distributed systems, see section~\ref{sec:computing},
-to render images.  The next generation of distributed systems capable of 
-exascale computation provides an opportunity and in some cases a necessity to 
-redesign current distributed applications.  Two of the main differences that 
-will set exascale systems apart from current distributed systems are the 
-increase in the number of nodes available and the reduction of the memory 
-available per node.  For algorithm designers, this means there will be increased
-communication overhead as data will need to be passed more frequently between 
-individual nodes.
+Libraries such as Embree, introduced in Section~\ref{sec:embree}, provide 
+optimized ray tracing algorithms that exploit parallelism on a single machine.  
+When we look at larger graphics scenes that do not fit into the memory of a 
+single machine, we may consider the use of distributed systems, introduced in
+Section~\ref{sec:computing}, to render images.  The next generation of 
+distributed systems capable of exascale computation provides an opportunity and 
+in some cases a necessity to redesign current distributed applications.  Two of 
+the main differences that will set exascale systems apart from current 
+distributed systems are the increase in the number of nodes available and the 
+reduction of the memory available per node.  For algorithm designers, this means 
+there will be increased communication overhead as information will need to be
+passed more frequently between individual nodes.
 
 Communication-avoiding algorithms have been proposed as a way to reduce 
 communication overhead.  The basic idea is to re-do computation instead of 
 communicating results.  We use this idea as a basis for designing a distributed 
-ray tracing application.  On-node parallelism can be exploited by taking 
-advantage of Embree or another optimized library.  This leaves the key challenge 
-as how to reduce the communication necessary between the nodes of the 
-distributed system.
+ray tracing application.  Using an optimized on-node kernel library, such as
+Embree, leaves us with the key challenge of how to reduce or eliminate the
+communication necessary between the nodes of the distributed system.
 
-\section{Data Decomposition}
-\label{sec:data_decomposition}
+\section{Scene Decomposition}
+\label{sec:scene_decomposition}
 Designing a ray tracer for exascale systems becomes an interesting problem once
-we consider scenes to render that have too much information to fit entirely into
-the memory of a single node.  In these scenes, some type of data decomposition 
-is required where the scene is divided into smaller pieces and distributed 
-amongst the available nodes. To fully utilize the on node parallelism we would 
-want to give each node enough data to fill its available memory. As each scene 
-to be rendered is unique the idealized distribution for one scene will not be 
-the same as the idealized distribution for another.  In order to split the data
-into equally-sized subsets, a technique known as load balancing is used.
+we consider scenes to render that cannot be run on a single compute node.   In
+these scenes some type of decomposition to divide the scene into smaller
+pieces to distribute amongst the available nodes is necessary.  To fully utilize
+the on-node parallelism we would want each node to have just enough information
+to fill the available memory. As each scene to be rendered is unique, the
+idealized distribution for one scene will not be the same as the idealized
+distribution for another.  Load balancing, a technique introduced in
+Section~\ref{sec:ray_tracing}, is often used to split the scene into
+equally-sized subsets.
 
-Load balancing is often addressed with a pre-processing step where the domain is 
-optimally divided into evenly sized subsets of data before ray tracing beings. 
-As the pre-processing step is often computationally expensive, the expense must 
-be considered and weighed against alternative designs. For example, a naive 
-alternative approach is to divide the space based on a uniform spatial 
-distribution.  This results in unevenly balanced subsets of data but takes 
-little time to compute.  In this naive approach where the scene has not been 
-balanced it is likely to end up with nodes that have lots of work while other 
-nodes have little work.
+Load balancing is often accomplished using a pre-processing step where the scene 
+is optimally divided into evenly-sized subsets before ray tracing the 
+scene.  As the pre-processing step is often computationally expensive, the 
+expense must be considered and weighed against alternative designs. For example, 
+a na\"{i}ve alternative approach is to divide the space based on a uniform 
+spatial distribution.  Figure~\ref{fig:decompose-scene} presents pseudocode
+for one such algorithm.  This algorithm results in unevenly balanced subsets but
+takes little time to compute.  In this na\"{i}ve approach, where the scene has
+not been balanced it is likely to end up with nodes that have lots of work
+while other nodes have little work.
 
-Determining the optimal design pattern for data decomposition becomes a question
-of whether the cost of pre-processing outweighs the cost of an unbalanced 
+\begin{figure}[!htb]
+\begin{algorithm}
+decompose_scene(scene)
+  out: filled voxel subsets of scene
+  voxels = create_spatially_uniform_voxels()
+  for each voxel in voxels do
+    for each primitive in scene do
+      if is_in(primitive, voxel) then
+        add(voxel, primitive)
+      end if
+    end for
+  end for
+return voxels
+\end{algorithm}
+\caption{Pseudocode - Decompose Scene}
+\label{fig:decompose-scene}
+\end{figure}
+
+Determining the optimal design pattern for scene decomposition becomes a
+question of whether the cost of pre-processing outweighs the cost of an unbalanced 
 system.  Assuming the pre-processing step were free, computationally speaking, 
-the solution would then be to use it.  This would ensure the minimum number of
+the solution would be to use it.  This would ensure the minimum number of
 nodes are used and that each one is used to its full potential, memory wise.  
 However since there is a cost to pre-processing we must consider algorithms that
 reduce this cost.  
 
-Dividing the domain uniformly in space, for example, reduces the pre-processing 
-cost but requires the use of more nodes than would be needed by a load-balanced
-distribution.  In addition, each node may or may not fill the memory available. 
-Since each node need not be responsible for a single subset of the domain, it is 
-possible to offset this concern and increase memory usage per node by assigning 
-each node multiple subsets of data.
+Dividing the scene uniformly in space reduces the pre-processing cost, but 
+potentially increases the number of required nodes.  In addition, each node may 
+or may not fill the memory available.  Since each node need not be responsible 
+for a single subset of the scene, it is possible to offset this concern and 
+increase memory usage per node by assigning each node multiple subsets.
 
 \begin{figure}[!htb]
 \centering
-  \includegraphics[height=5cm]{drawings/sanmiguel_cam25.pdf}
-\caption{San Miguel example scene}
+\noindent\makebox[\textwidth]{%
+  \includegraphics[height=6cm]{drawings/sanmiguel_cam25.pdf}%
+  }
+\caption{Example - San Miguel Scene}
 \label{fig:san_miguel}
 \end{figure}
 
-As an example we will consider the San Miguel data set, see 
-figure~\ref{fig:san_miguel}\footnote{http://www.pbrt.org/scenes\_images/sanmiguel\_cam25.jpg}.  
-The scene was modeled by Guillermo M. Leal Llaguno
-and is based on a hacienda located in San Miguel de Allende, Mexico.  It is a 
-large scene with a nonuniform data distribution.  If we decompose the domain 
-into 27 (=3x3x3) equally-sized voxels, we get the distribution shown in 
-figure~\ref{fig:san_miguel_data} a.  If we consider ray tracing this scene on a
-machine with eight cores, we might get a distribution such as that shown
-in figure~\ref{fig:san_miguel_data} b.   This roughly distributes the data 
-evenly between the nodes, giving us a setup similar to what a pre-processing 
-step designed to optimally distribute the data may compute.  For simplicity we 
-will use the spatially uniform data distribution algorithm and focus on reducing 
-communication cost.
+As an example we will consider the San Miguel scene in
+Figure~\ref{fig:san_miguel}~\cite{san-miguel-image}.  The scene was modeled by 
+Guillermo M. Leal Llaguno and is based on a hacienda located in San Miguel de 
+Allende, Mexico.  It is a large scene with 10,500,550 triangles and a
+non-uniform distribution of information.  If we decompose the scene into 27
+($=$3$\times$3$\times$3) equally-sized subsets the distribution of triangles is
+shown in Figure~\ref{fig:san_miguel_scene}a is generated.  If we consider ray
+tracing this scene on a machine with eight nodes a distribution such as that shown in 
+Figure~\ref{fig:san_miguel_scene}b, which was generated by inspection, is
+possible.  This roughly distributes the scene evenly between the nodes and
+aligns neighboring subsets on the same node. If our algorithm can achieve this
+type of distribution we would have a setup similar to what a more computationally
+expensive pre-processing step designed to optimally distribute the scene may
+compute.  As mentioned in Section~\ref{sec:task-based}, tuning hints can be
+provided to many task-based programming models, the optimal balanced
+distribution of voxels over available nodes is the type of information you 
+might in such a specification file.  Given this, we use a spatially uniform
+distribution algorithm and focus on reducing communication cost.
 
 \begin{figure}[!htb]
-\minipage{0.52\textwidth}
-  \includegraphics[height=3.8cm]{drawings/VoxelDistribution.pdf}
+\minipage{0.7\textwidth}
+  \centering{
+  \includegraphics[width=3.5in]{drawings/examples/VoxelDistribution.pdf}
+  } \\
+  \centering{(a) Triangles per Voxel}
   
-  (a) Triangles per voxel
-  
-  \includegraphics[height=3.8cm]{drawings/DataDistribution.pdf}
-  
-  (c) Triangles per node  
+  \centering{
+  \includegraphics[width=3.5in]{drawings/examples/NodeDistribution.pdf}
+  } \\
+  \centering{(c) Triangles per Node}
 \endminipage\hfill
-\minipage{0.48\textwidth}
-  \includegraphics[width=\linewidth]{drawings/NodeDistribution.pdf}  
-  
-  (b) Node distribution  
+\minipage{0.3\textwidth}
+  \centering{
+  \includegraphics[width=1.5in]{drawings/examples/NodeVoxelDistribution.pdf}  
+  } \\
+  \centering{(b) Voxel Distribution \\ on Nodes}  
 \endminipage
-\caption{San Miguel data decomposition example}
-\label{fig:san_miguel_data}
+\caption{Example - San Miguel Voxel Decomposition}
+\label{fig:san_miguel_scene}
 \end{figure}
 
 
 \section{Communication} 
 \label{sec:communication}
 Each ray cast into a scene has the potential to interact with every geometric
-shape in the scene due to reflection and refraction\footnote{ %
-  Typically a maximum threshold is set to limit the number of times a ray
-  can be reflected. 
-}.  In addition, each point being illuminated within a scene needs to cast 
-secondary rays towards the lights.  These means determining which pieces of 
-memory each ray will need throughout the ray tracing algorithm is not a straight
-forward task.  With a distributed system and in a worst case scenario, each ray 
-may need to communicate with every node.  
+primitive in the scene due to reflection and refraction.  In addition, each
+point being illuminated within a scene needs to cast rays towards each
+luminaire.  As a result, determining which pieces of memory each ray will need
+throughout the ray tracing algorithm is not a straight forward task.  With a
+distributed system and in a worst-case scenario, each ray may need to
+communicate with every node where subsets of the scene were distributed.
 
 Communication is anticipated to be the bottleneck on an exascale system which
-makes reducing communication cost high priority in our algorithm design.  
-Optimally our goal is to create a ray tracing algorithm with distributed data 
+makes reducing the communication cost a high priority in our algorithm design.  
+Optimally our goal is to create a ray tracing algorithm with distributed scene 
 that needs little to no communication.  We explore how we might design a 
-communication avoiding ray tracer in this section.
+communication-avoiding ray tracer in this section.
 
-\subsection{Communication-avoiding ray casting}
+\subsection{Communication-Avoiding Ray Casting}
 \label{sec:ca-ray-casting}
-To design a communication avoiding ray tracer we will start with a simple ray
+To design a communication-avoiding ray tracer we will start with a simple ray
 casting algorithm where only the viewing rays are traced. These rays are 
-cast into a scene from the eye position.  If they intersect with an object, the 
-ambient-specular-diffuse color is computed.  Without reflection, refraction and 
-secondary rays, communication between nodes executing the ray tracer can be 
-avoided entirely.
+cast into a scene from the eye position.  If they hit an object, a fixed red,
+green and blue, or RGB, value is set based on the object the ray intersected.
+This creates a cartoon-like rendering of the scene.  Without light rays,
+reflected rays and refracted rays, communication between nodes executing the
+ray caster can be avoided entirely.
+
+We can avoid all communication between nodes executing the ray casting step in a
+ray casting algorithm by tracing every ray in every voxel as outlined in
+Figure~\ref{fig:ray_caster}a. Each process executing over a subset of the scene,
+or voxel, will receive every viewing ray as defined in
+Figure~\ref{fig:ray_caster}b.  Each process then traces the rays and sets the
+RGB value if the ray intersects an object in the subset of the information it
+contains.
 
 \begin{figure}[!htb]
+\minipage{0.56\textwidth}
+\begin{algorithm}
+cast_scene(scene, camera) 
+  out: a rendered image of the scene
+  voxels = decompse_scene(scene)
+  voxels = sort_wrt(camera, voxels)
+  rays = distribute_viewing_rays(camera)
+  image[rays] = false
+  for each voxel in voxels do
+    voxel_image = cast_voxel_rays(rays, voxel)
+    for each ray in rays do
+      if voxel_image[ray] then do
+        image[ray] = voxel_image[ray];
+      end if
+    end for
+  end for
+return image
+\end{algorithm}
+
+\centering{(a) Cast Scene}
+
+\endminipage\hfill
 \minipage{0.4\textwidth}
 \begin{algorithm}
-TRACE_RAYS(voxels) 
-  in: process for each voxel of 
-      data, sorted back to front
+cast_voxel_rays(rays, voxel)
+  out: image, traced scene of voxel
+  image[rays] = false
+  for each ray in rays do
+    if intersects(ray, scene) then do
+      image[ray] = rgb(ray)
+    end if
+  end for
+return image
+
+
+
+
+
+
+\end{algorithm}
+
+\centering{(b) Cast Voxel Rays}
+
+\endminipage\hfill
+\caption{Pseudocode - Ray Casting}
+\label{fig:ray_caster}
+\end{figure}
+
+\begin{figure}[!h]
+\centering
+  \includegraphics[width=6in]{drawings/examples/cube_example/cubes_visio.pdf}
+\caption{Example - Ray Casting Cubes}
+\label{fig:cubes_3d}
+\end{figure}
+
+The painters algorithm~\cite{book-shirley}, which ``paints'' pixels 
+using a back-to-front voxel ordering with respect to the camera position, can
+then be used to produce the final image.  This ensures the pixels from
+front voxels paint over pixels from back voxels.  As an illustration we can
+consider the simple scene in Figure~\ref{fig:cubes_3d} which has three cubes
+placed along a diagonal.  Each cube is tessellated into twelve triangles, two
+for each face.  If we distribute the scene into 8 ($=$2$\times$2$\times$2)
+equally-sized voxels sharing the orange cube, one voxel with the red cube and
+one voxel with the blue cube.  The voxels are indexed using the i, j, and k
+coordinates of the voxel's vertex closest to the origin of the voxel grid.
+
+If we trace an orthographic view of the scene from the camera position shown,
+each voxel computation produces the corresponding images shown in
+Figure~\ref{fig:cubes_example}.  The triangle geometry from the indicated voxel is
+outlined for clarity. Rays that intersect the inside of an object are shown in
+gray.
+
+\begin{figure}[!htb]
+\minipage{0.25\textwidth}
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_01.pdf}
+  \centering{(0, 0, 0)}
+  
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_05.pdf}
+  \centering{(0, 0, 1)}
+\endminipage\hfill
+\minipage{0.25\textwidth}
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_02.pdf}
+  \centering{(1, 0, 0)}
+  
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_06.pdf}
+  \centering{(1, 0, 1)}
+\endminipage\hfill
+\minipage{0.25\textwidth}%
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_03.pdf}
+  \centering{(0, 1, 0)}
+  
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_07.pdf}
+  \centering{(0, 1, 1)}
+\endminipage
+\minipage{0.25\textwidth}%
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_04.pdf}
+  \centering{(1, 1, 0)}
+  
+  \includegraphics[width=\linewidth]{drawings/examples/cube_example/cubes_08.pdf}
+  \centering{(1, 1, 1)}
+\endminipage
+
+\centering{\includegraphics[width=.25\linewidth]{drawings/examples/cube_example/cube_final.pdf}}
+
+\centering{Final Image}
+
+\begin{flushleft}\caption{Example - Ray Casting Cubes - Images Produced by
+Trace Voxels}{Each image shows the orthographic view of the result of rendering the
+specified voxel.  The geometry contained in the voxel is outlined. 
+Intersections of rays with the inside of an object are shown in gray.}
+\label{fig:cubes_example}
+\end{flushleft}%
+\end{figure}
+\subsection{Communication-Avoiding Ray Tracing}
+\label{sec:ca-ray-tracing}
+
+Expanding on the ray casting algorithm, we now look at how we might design 
+similar communication-avoiding algorithms to implement shading and shadows.  
+Most shading models use a second set of rays cast from an intersection point in 
+the direction of each luminaire.  To compute shadows, it is important to know 
+if the light rays intersect other objects in the scene anywhere along the path
+from the intersection point to the luminaire.  
+
+Casting rays from each intersection point towards each luminaire results in
+a significant amount of communication if the rays pass through multiple voxels.
+To eliminate this cost we introduce a technique that creates a mesh for each 
+luminaire on the walls of each voxel.  The mesh, which we will call a shadow
+mesh, is then traced for each voxel to determine which light rays pass through
+the voxel and which are obstructed.  The shadow mesh is used by the algorithm
+compiling the final image to compute the correct RGB to assign each pixel. This
+concept is illustrated in Figure~\ref{fig:light-distribution} and further
+explained in Section~\ref{sec:algorithm}.
+
+\begin{figure}[!htb]
+\centering
+\begin{subfigure}{0.49\textwidth}
+ \centering
+  \includegraphics[width=.98\columnwidth]{drawings/examples/Lights1.pdf}
+  \caption{Light Rays}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+ \centering
+  \includegraphics[width=.98\columnwidth]{drawings/examples/Lights2.pdf}
+  \caption{Traced Shadow Meshes}
+\end{subfigure}
+\caption{Example - Shadow Mesh Generation}
+\label{fig:light-distribution}
+\end{figure}
+
+\subsection{Reflection and Refraction}
+The ray tracing algorithm presented in the next section supports shading,
+shadows and scenes with multiple luminaires.  Although not implemented within
+the scope of this thesis, we introduce a communication-avoiding strategy for
+handling reflected and refracted rays in
+Chapter~\ref{future-work-and-conclusions}.  Reflected rays are rays that
+intersect a reflective surface and change trajectories, refracted rays change
+trajectory as they pass through a surface.  The technique introduced takes a
+second pass through the ray tracing algorithm to trace rays from intersection
+points on reflective surfaces.  A restart capability that may exist in the
+runtime systems of future exascale distributed systems is used to restart
+\textbf{trace\_viewing\_rays} with the reflected or refracted rays as shown in
+Figure ~\ref{fig:design}.
+
+\newpage
+
+\begin{figure}[!htb]
+\centering
+  \includegraphics[width=\linewidth]{drawings/Design.pdf}
+\caption{Petri Net - Ray Tracer}
+\label{fig:design}
+\end{figure}
+
+\section{Ray Tracing Algorithm}
+\label{sec:algorithm}
+Using a spatially uniform distribution algorithm as described in 
+Section~\ref{sec:scene_decomposition} and reducing communication as described in 
+Section~\ref{sec:communication} allows us to design the communication-avoiding 
+ray tracer outlined in Figure~\ref{fig:design}.  The figure shows a 
+Petri net describing the main components of a ray tracing algorithm.  Petri 
+nets are introduced in Section~\ref{sec:petri-nets}.  The following sections 
+break down each place and transition.  For the scope of this thesis we have 
+implemented the highlighted parts producing a ray tracer that supports shading
+and shadows.  Implementation details can be found in 
+Chapter~\ref{chpt:implementation}.  
+
+\subsection{Inputs}
+The required inputs for the ray tracer are lighting, camera and scene object 
+properties.  There will be a single scene with potentially many luminaires.  
+Multiple camera positions can be traced, but each pass through 
+\textbf{trace\_viewing\_rays} will use a single camera position.  The labels 
+on the arcs indicate the quantity relationships.
+
+\subsection{Decompose Scene}
+The transition \textbf{decompose\_scene} takes a \emph{scene} as input and 
+produces a set of \emph{voxels} containing subsets of the scene.  Pseudo
+code is presented in Figure~\ref{fig:decompose-scene}.  A geometric primitive is 
+considered in a voxel if any part of the primitive falls within the voxel. This
+results in geometry that crosses voxel walls being duplicated in neighboring
+voxels.  The number of voxels created is represented on the arc as \emph{v}. 
+For clarity we will use the term voxel to refer to an entity that contains a
+subset of the scene, both geometry and material information.
+
+\subsection{Distribute Viewing Rays}
+The transition \textbf{distribute\_viewing\_rays} takes camera properties as 
+input and produces \emph{viewing rays}.  The number of viewing rays in the
+distribution is represented as \emph{lv}.
+
+\subsection{Distribute Light Rays}
+The transition \textbf{distribute\_light\_rays} takes a luminaire as input and 
+produces \emph{light rays}.  The number of light rays in the distribution is
+represented on the arc as \emph{lr}.  The distribution of light rays is
+dependent on the type of luminaire being used, additional information on the
+algorithm implemented can be found in
+Section~\ref{sec:implementation-step-collections}.
+
+\newpage
+
+\begin{figure}[!htb]
+\begin{algorithm}
+trace_light_rays(light_rays, voxel) 
+  out: shadow mesh for the luminaire and voxel
+  for each light_ray in light_rays
+    shadow_meshes[voxel][luminaire][light_ray] = intersects(light_ray, voxel)
+  end for
+return shadow_meshes
+\end{algorithm}
+\caption{Pseudocode - Trace Light Rays}
+\label{fig:trace-light-rays}
+\end{figure} 
+
+\subsection{Trace Light Rays}
+The transition \textbf{trace\_light\_rays} takes the \emph{light rays} 
+distributed from a luminaire and a \emph{voxel} as input and produces a 
+\emph{shadow mesh}.  The shadow mesh contains a boolean value for each light ray 
+indicating whether or not the ray hit an object in the voxel being traced.  
+Pseudocode is presented in Figure~\ref{fig:trace-light-rays}. 
+
+\begin{figure}[!htb]
+\begin{algorithm}
+trace_viewing_rays(viewing_rays, luminaires, voxel) 
+  out: traced images for the voxel, one for each luminaire
+  traced_images[voxels][luminaires][viewing_rays] = false
+  for each viewing_ray in viewing_rays
+    if intersects(viewing_ray, voxel) then do
+      for each luminaire in luminaires
+        traced_images[voxel][luminaire][viewing_ray] = 
+          illuminate(intersection, viewing_ray, luminaire)
+      end for end if
+  end for
+return traced_images
+\end{algorithm}
+\caption{Pseudocode - Trace Viewing Rays}
+\label{fig:trace-viewing-rays}
+\end{figure}
+
+\subsection{Trace Viewing Rays}
+The transition \textbf{trace\_viewing\_rays} takes the \emph{viewing rays}, the 
+\emph{luminaires} and a \emph{voxel} as input and produces a set of \emph{traced 
+images}. Each traced image contains the result of illuminating the voxel with a 
+single luminaire.  One of the luminaires should be the a global ambient light
+to avoid completely black shadows. All traced images hold the intersection point
+for each set pixel. Pseudocode is presented in
+Figure~\ref{fig:trace-viewing-rays}.  The helper function, \textbf{illuminate}
+implements the shading model, pseudocode for the model implemented is given in
+Chapter~\ref{chpt:implementation}. 
+
+\begin{figure}[!htb]
+\begin{algorithm}
+composite_image(traced_images, shadow_meshes)
   out: image, a ray traced scene
-  rays = COMPUTE_PRIMARY_RAYS()
-  image[][]
-  for all voxel in voxels do
-    rays_ = COPY(rays)
-    image_ = voxel.TRACE_VOXEL_RAYS(rays_)
-    for all x in image.width do
-      for all y in image.height do
-        if image_[x][y] then
-          image[x][y] = image_[x][y];
+  voxels_wrt_camera = sort_wrt(voxels, camera)
+  for each voxel in voxels_wrt_camera do
+    for each viewing_ray in viewing_rays do
+      image[viewing_ray] = traced_images[voxel][ambient][viewing_ray]
+      for each luminaire in remove(ambient, luminaires) do 
+        pixel = traced_images[voxel][luminaire][viewing_ray]
+        blocked = false  
+        voxels_wrt_luminaires = sort_wrt(voxels, luminaire)  
+        for each voxel_wrt_luminaire in voxels_wrt_luminaire do
+          shadow_mesh = shadow_meshes[voxel_wrt_luminaire][luminaire]
+          closest_light_ray = closest(shadow_mesh, voxel_intersection(pixel)) 
+          if shadow_mesh[closest_light_ray] then do 
+            blocked = true
+            end for
+          end if
+        end for
+        if not blocked then do 
+          image[viewing_ray] += pixel
         end if
       end for
     end for
   end for
 return image
 \end{algorithm}
-
-(a) Controller code
-
-\endminipage\hfill
-\minipage{0.4\textwidth}
-\begin{algorithm}
-TRACE_VOXEL_RAYS(rays)
-  in:  all primary rays
-  out: image, a traced scene 
-       for this voxel
-  image[][]
-  for all ray in rays do
-    if ray intersects scene then
-      image[ray.x][ray.y] = COMPUTE_COLOR(ray)
-    else
-      image[ray.x][ray.y] = FALSE
-    end if
-  end for
-return rays
-
-
-
-
-.
-\end{algorithm}
-
-(b) Per voxel code
-
-\endminipage\hfill
-\caption{Ray casting pseudo code}
-\label{fig:ray_caster}
+\caption{Pseudocode - Composite Image}
+\label{fig:composite-image}
 \end{figure}
 
-We can avoid all communication between nodes in a ray casting algorithm by 
-preemptively sending every ray to every node, see figure~\ref{fig:ray_caster} a.  
-Each process executing over a subset of data will receive every viewing ray, see 
-figure~\ref{fig:ray_caster} b.  Each process then traces the rays and computes a
-color if the ray intersected an object within its data.  
+\subsection{Composite Image}
+The transition \textbf{composite\_image} takes the \emph{traced images} and the 
+\emph{shadow meshes} as input and creates the final traced image.  Pseudocode
+for the algorithm is outlined in Figure~\ref{fig:composite-image}.  The
+algorithm adds the contributions from non-blocked luminaires for each voxel to 
+determine RGB value of the pixel in the output image.  
 
-\begin{figure}[!htb]
-\minipage{0.5\textwidth}
-  \includegraphics[width=\linewidth]{drawings/side.pdf}
-  
-(a) Side
+\subsection{Example}
 
-\endminipage\hfill
-\minipage{0.5\textwidth}
-  \includegraphics[width=\linewidth]{drawings/front.pdf}
-  
-(b) Front
-
-\endminipage\hfill
-\caption{3D view of example cubes}
-\label{fig:cubes_3d}
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=8cm]{drawings/examples/LightIntersection.pdf}
+  \caption{Example - Shadow Mesh Intersection}
+  \label{fig:light-mesh-intersection}
 \end{figure}
 
-The traced rays can then be used to produce the final image using a back to 
-front voxel ordering to ensure correct image composition.  As an illustration we 
-can consider a simple scene with three cubes placed along a diagonal, 
-see figure~\ref{fig:cubes_3d}.  Each cube is broken into twelve triangles, two 
-for each face.  If we distribute the data into 8 (=2x2x2) equally-sized subsets
-we get eight voxels sharing the green cube, one voxel with the red cube and one 
-voxelw ith the blue cube.  The voxels are ordered front to back, bottom to top, 
-and left to right, which makes voxel 1 the front bottom left, voxel 2 the front 
-bottom right, and voxel 8 the back top right. 
+Figure~\ref{fig:light-mesh-intersection} illustrates the ray tracing algorithm
+presented in this section.  The figure shows a viewing ray entering a voxel.  
+The ray intersects a blue sphere.  The scene contains a single luminaire 
+which results in \textbf{trace\_viewing\_rays} producing two traced images, one 
+where the pixel for the viewing ray is illuminated blue and one where it is 
+in shadow.  The shadow mesh generated by \textbf{trace\_light\_rays} is shown on 
+the back wall of the voxel.   The closest point on the shadow mesh to the 
+intersection of the light ray and voxel wall is used by 
+\textbf{composite\_image} to determine if the pixel in the final image should be 
+illuminated blue or in shadow.  The four closest points are highlighted with 
+a yellow circle.  The closest point is the upper right hand corner of the 
+highlighted vertices and is in shadow having been blocked by the red sphere.  
+This results in the final image containing a shaded pixel for the represented 
+viewing ray.
 
-If we trace the scene from the camera view shown in figure~\ref{fig:cubes_3d} b, 
-each voxel computation will produce corresponding image shown in 
-figure~\ref{fig:cubes}.  The gray in the images are \emph{not} produced by the
-computation, they illustrate the extents of the geometry contained by the voxel 
-and are there only for clarity.  The dark green in voxels five through eight 
-illustrate the voxel tracing the inside of the green cube.  The final image is 
-produced, see figure~\ref{fig:cubes_final}, by composing the eight voxel images
-started with voxel eight and working back towards voxel one.  
-
-\begin{figure}[!htb]
-\minipage{0.25\textwidth}
-  \includegraphics[width=\linewidth]{drawings/cubes_01.pdf}
-  Voxel 1 
-  
-  \includegraphics[width=\linewidth]{drawings/cubes_05.pdf}
-  Voxel 5
-\endminipage\hfill
-\minipage{0.25\textwidth}
-  \includegraphics[width=\linewidth]{drawings/cubes_02.pdf}
-  Voxel 2
-  
-  \includegraphics[width=\linewidth]{drawings/cubes_06.pdf}
-  Voxel 6
-\endminipage\hfill
-\minipage{0.25\textwidth}%
-  \includegraphics[width=\linewidth]{drawings/cubes_03.pdf}
-  Voxel 3
-  
-  \includegraphics[width=\linewidth]{drawings/cubes_07.pdf}
-  Voxel 7
-\endminipage
-\minipage{0.25\textwidth}%
-  \includegraphics[width=\linewidth]{drawings/cubes_04.pdf}
-  Voxel 4
-  
-  \includegraphics[width=\linewidth]{drawings/cubes_08.pdf}
-  Voxel 8
-\endminipage
-\caption{Orthographic perspective of the images produced by each traced voxel}
-\label{fig:cubes}
-\end{figure}
+Figure~\ref{fig:trace}a illustrates the viewing rays as computed by
+\textbf{distribute\_viewing\_rays}.  Figure~\ref{fig:trace}b illustrates the
+result of all calls to \textbf{trace\_viewing\_rays} using a single ambient
+light. The color of the viewing rays is set to the color of intersected objects.
 
 \begin{figure}[!htb]
 \centering
-  \includegraphics[height=5cm]{drawings/cube_final.pdf}
-\caption{Orthographic perspective of the final composed image of traced voxels}
-\label{fig:cubes_final}
-\end{figure}
-
-
-\subsection{Communication avoiding ray tracing}
-\label{sec:ca-ray-tracing}
-
-Expanding on the ray casting algorithm, we will now look at how we might design 
-similar communication avoiding algorithms to implement a full ray tracer.  We 
-will first tackle secondary shadow rays.  Shadow rays are rays cast from an 
-intersection point that point in the direction of a light source.  To correctly 
-compute shadows, it is important to know if the ray intersects with any other 
-objects in the scene anywhere along its path from the intersection point of the 
-object to the light source.  
-
-Shadow ray calculations could result in a significant amount of communication if
-done during runtime.  To reduce this cost, we introduce a technique that 
-distributes light information to each voxel prior to runtime.  Similar to the 
-ray casting algorithm, we can cast rays into the scene from each light source.  
-Instead of sending all rays to all voxels however, we will need to propagate the
-rays through the scene, starting with the light source and moving outward.  As
-the rays are propagated they can be marked as in shadow or not.  As the light
-rays reach a new voxel, they produce a mesh on the facing wall.  Each vertex in
-the mesh then contains either an indicator that the vertex is in shadow or
-the direction and illumination information from its light source, see 
-figure~\ref{fig:light-distribution}.  Additional information on 
-implementation can be found in section~\ref{sec:proposed_algorithm}.
-
-\begin{figure}[!htb]
-\centering
-\begin{subfigure}{0.49\textwidth}
+\begin{subfigure}{.49\columnwidth}
  \centering
-  \includegraphics[width=.98\columnwidth]{drawings/Lights1.pdf}
-  \caption{Initial light rays}
+  \includegraphics[width=.98\columnwidth]{drawings/examples/Trace1.pdf}
+  a) Distribute Viewing Rays
 \end{subfigure}
-\begin{subfigure}{0.49\textwidth}
+\begin{subfigure}{.49\columnwidth}
  \centering
-  \includegraphics[width=.98\columnwidth]{drawings/Lights2.pdf}
-  \caption{Computed light mesh}
+  \includegraphics[width=.98\columnwidth]{drawings/examples/Trace2.pdf}
+  b) Trace Viewing Rays
 \end{subfigure}
-\caption{Light ray distribution}
-\label{fig:light-distribution}
+\begin{flushleft}\caption{Example - Distribute and Trace Viewing Rays}{Viewing
+rays are colored by the objects they intersect in the voxels of
+intersection.}%
+\label{fig:trace}
+\end{flushleft}
 \end{figure}
-
-The computed light is then used at runtime by the voxel computation to 
-compute secondary shadow rays without needing to communicate with any other 
-voxel.  The individual voxel, using the location of each light source can 
-compute rays from an intersection point to each light source.  At the 
-intersection of the ray with a voxel wall, the corresponding light mesh will be 
-used to determine the correct illumination necessary for the intersection point.
-A nearest neighbor or averaging algorithm can be used to determine which vertex 
-or vertices in the mesh are closest to the intersection point.  This information
-can be used to interpolate and illuminate the intersection point.
-
-\subsubsection{Reflected and refracted rays}
-Although not implemented within the scope of this thesis, we introduce a 
-potential communication avoiding strategy for handling reflected and refracted 
-rays.  For refracted rays, a technique similar to the light meshes could be 
-used, where a mesh is computed from each reflected material and distributed 
-outward to each voxel.  Instead of holding light and shadow information the 
-vertices of the mesh would contain material information from the first object 
-intersected.  Each voxel computation would then use the material mesh to 
-determine the correct color for a reflected ray.  Each voxel would need access 
-to all the material meshes in the case where a reflected ray reflects to another
-reflector.  See section~\ref{sec:future-work} for additional details.
-
-Refractor materials which change the trajectory of the rays that pass through 
-them could be supported by the proposed algorithm through the use of a restart 
-capability.  The underlying assumptions to compute the light and material meshes
-rely on the rays maintaining a straight trajectory.  The same assumption is made
-to compute the intersection of the viewing rays and each voxel they intersect 
-with.  If a ray refracts in one voxel, the subsequent voxels would need to know 
-the new intersection point of that ray and their wall, along with the rays new 
-direction.  If we could detect when rays refract within a voxel and invalidate 
-the computations being done with non-refracted rays, we could restart them with 
-the correct rays.  Details on this technique can be found in 
-section~\ref{sec:future-work}.
-
-If a scene contains little or no reflected rays, the overhead of computing the
-material meshes may outweigh the cost of communicating reflected rays at 
-runtime.  If the material meshes and the light meshes are used however 
-communication cost would be reduced to one pass through the domain for each 
-light and each reflector prior to runtime.  At runtime each voxel's computation
-would be an independent calculation, requiring no communication except to send
-back the final results of the traced rays.  The use of meshes however, results 
-in an approximation of the result produced by a conventional ray tracer due to 
-the nearest neighbor or averaging used when a ray intersects the mesh.
-
-\section{Proposed Algorithm}
-\label{sec:proposed-algorithm}
-Using a spatially even data distribution algorithm as described in 
-section~\ref{sec:data_decomposition} and reducing communication as described in 
-section~\ref{sec:communication} allows us to design the communication 
-avoiding ray tracer outlined in figure~\ref{fig:design}.  The figure shows a 
-Petri Net, see Section~\ref{sec:petri-nets}, describing the main components of 
-a full ray tracing algorithm.  The following sections break down each place and
-transition.  For the scope of this thesis we have implemented the highlighted 
-section, details can be found in chapter ~\ref{sec:implementation}.
-
-\begin{figure}[!htb]
-\centering
-  \includegraphics[width=\linewidth]{drawings/Design.pdf}
-\caption{Proposed Design Petri Net}
-\label{fig:design}
-\end{figure}
-
-\subsection{Inputs}
-The required inputs for the ray tracer are lighting, camera and scene object 
-properties.  There will be a single scene with potentially many lights.  
-Additionally many camera positions can be traced, but each pass through 
-\emph{traced rays} will use a single camera position.  The labels on the arcs 
-indicate the quantity relationships.
-
-\begin{figure}[!htb]
-\minipage{0.4\textwidth}
-\begin{algorithm}
-DISTRIBUTE_DATA(scene, voxels)
-  in:  the scene to be traced
-       voxels to split the scene into
-  out: filled voxel subsets of scene
-  for all voxel in voxels do
-    for all geometric_shape in scene do
-      if geometric_shape is in voxel then
-        voxel.data.add(geometric_shape)
-      end if
-    end for
-  end for
-return voxels
-\end{algorithm}
-
-Distribute data
-\endminipage\hfill
-\caption{Ray tracer pseudo code}
-\label{fig:ray_tracing_1}
-\end{figure}
-
-\subsection{Distribute data}
-The transition, \textbf{distribute\_data} takes a \emph{scene} and the 
-\emph{voxels} and fills them with subsets of the scenes data, see 
-figure~\ref{fig:ray_tracing_1}.
-
-\subsection{Distribute rays}
-The transition, \textbf{distribute\_rays}, takes either camera properties as 
-input or information regarding refracted rays from the output of a voxel 
-computation and produces a set of viewing rays.  \emph{Primary Viewing Rays} are 
-the resulting computed sets.
-
-\begin{figure}[!htb]
-\minipage{0.4\textwidth}
-\begin{algorithm}
-TRACE_LIGHTS(lights, voxels) 
-  in:  lights in the scene
-       voxel data
-  out: light mesh for each voxel
-  for all light in lights do
-    light_mesh = false;
-    for all voxel in voxels do 
-      if not light_mesh then
-        light_mesh = 
-          COMPUTE_MESH(light, voxel)
-      else
-        light_mesh = 
-          PROPIGATE_MESH(light_mesh, 
-                       light, voxel)
-      end if
-      light_mesh_ = COPY(light_mesh)
-      voxel.light_meshes.add(light_mesh_)
-    end for
-  end for
-return voxels
-
-
-.
-\end{algorithm}
-
-(a) Trace lights
-
-\endminipage\hfill
-\minipage{0.4\textwidth}
-\begin{algorithm}
-TRACE_REFLECTORS(scene, voxels) 
-  in:  scene to be traced
-       voxel data
-  out: material mesh for each reflector
-  material_meshes[,]
-  for all objects in scene do
-    material_mesh = false
-    if object is reflector then
-      for all voxel in voxels do 
-        if not light_mesh then
-          material_mesh = 
-            COMPUTE_MESH(object, voxel)
-        else
-          material_mesh = 
-            PROPIGATE_MESH(material_mesh, 
-                         object, voxel)
-        end if
-      end for
-      material_meshes.add(object, 
-                         material_mesh)
-    end if
-  end for
-return material_meshes
-\end{algorithm}
-
-(b) Trace reflectors
-
-\endminipage\hfill
-\caption{Ray tracer pseudo code}
-\label{fig:ray_tracing_2}
-\end{figure}
-
-\subsection{Trace lights}
-The transition, \textbf{trace\_lights} fires for each light in the domain and
-uses the voxel data sets to produce a light mesh for each light for each
-voxel.  \emph{Light Mesh} is the resulting mesh.  Pseudo code can be found in 
-figure~\ref{fig:ray_tracing_2} a.
-
-\subsection{Trace reflectors}
-The transition, \textbf{trace\_reflectors} fires once for each scene and 
-produces a material mesh for every reflector in the scene for each voxel.  
-\emph{Reflector Material Mesh} is the resulting mesh.  The pseudo code for trace 
-reflectors is similar to the pseudo code for trace lights and is presented in
- figure~\ref{fig:ray_tracing_2} b.
-
-\subsection{Trace voxel}
-The transition, \textbf{trace\_voxel} fires once for each voxel and produces a 
-copy of the viewing rays with computed color information.  \emph{Traced Rays} 
-are the resulting rays.  This transition uses the light meshes created for 
-its voxel along with the material meshes.  It will also need the viewing 
-rays and the lights.  Pseudo code for trace voxel can be found in 
-figure~\ref{fig:ray_caster}.  Pseudo code for the helper method 
-\textbf{compute\_color} is included in Section~\ref{sec:implementation}.
-
-
-\begin{figure}[!htb]
-\minipage{0.45\textwidth}
-  \includegraphics[width=6cm]{drawings/Case_1.pdf}
-  
-  (a) Light rays with no obstruction; handled by light mesh
-  
-  \includegraphics[width=6cm]{drawings/Case_3.pdf}
-  
-  (c) Reflected rays; handled by material mesh
-  
-\endminipage\hfill
-\minipage{0.45\textwidth}
-  \includegraphics[width=6cm]{drawings/Case_2.pdf}
-  
-  (b) Light rays with obstruction; handled by light mesh
-  
-  \includegraphics[width=6cm]{drawings/Case_4.pdf}
-  
-  (d) Refracted rays; handled by restart
-  
-\endminipage
-\caption{Ray tracing algorithm cases}
-\label{fig:use-cases}
-\end{figure}
-
-The algorithm presented here will handle ray casting as well as ray tracing for
-scenes with multiple light sources as well as materials with reflection and
-refraction material types.  The light mesh implementation can be found in 
-section~\ref{sec:implementation}.  Additional detials on material meshse and the 
-restart technique proposed for refracted rays can be found in section
-~\ref{sec:future-work}.  A summary of the use cases supported are outlined in
-figure~\ref{fig:use-cases}.
-
-
-
-
 
 
 

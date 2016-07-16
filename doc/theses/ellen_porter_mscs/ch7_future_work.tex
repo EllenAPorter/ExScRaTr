@@ -4,93 +4,49 @@
 This thesis presents a base system for task-based ray tracing that emphasizes 
 communication reduction.  Several modifications to the algorithm could be made 
 to improve runtime performance and feature support.  These improvements include
-modifications to support GPU and CPU ray tracing, optimizing and future
-evaluation on the implemented light meshes used, implementation of reflector
-material meshes or another algorithm for reducing communication due to reflected
-rays, and implementation of integrated restart functionality to support ray
-refraction.  
+modifications to support GPU and CPU ray tracing, support for reflected and
+refracted rays and support for soft shadows.
 
-\subsection{GPU ray tracing}
+\subsection{Reflected and Refracted Rays}
+As introduced in Chapter~\ref{chpt:design}, extending our ray tracer to support
+reflected and refracted rays while keeping communication costs low presents an
+opportunity to exploit another anticipated architecture feature of exascale
+distributed systems.  Hardware failures are anticipated to be more common at
+exascale~\cite{article-gropp}.  As a result, runtimes will need to
+detect failures and be able to recover from them.  Two ways to do this are to
+periodically send memory information to a file or duplicate the information
+across nodes.  This file or secondary node can then be used to recover when a
+failure is detected. This capability could be leveraged by the application to
+manually invoke a failure when the system detects refraction while tracing a
+voxel.  The node computing incorrect results using non-reflected or
+non-refracted rays would be stopped.  The new trajectories of the rays would be
+computed and the downstream voxel computations would be restarted with the new
+ray directions.
+
+\subsection{Soft Shadows}
+The implemented ray tracing algorithm creates hard lines along the edge of
+shadow.  Techniques have been developed to produce soft shadows for area light
+sources by casting multiple light rays from each intersection point that
+point to different locations along the area light source. The results of these
+are combine to produce a final value representing how ``in shadow'' a particular
+pixel should be.  This creates the illusion of a softer line along the shadows
+edge. The use of the shadow mesh presents an opportunity to evaluate how ``in
+shadow'' a pixel is by using the surrounding vertices in the mesh if some are in
+shadow and some are not.
+
+\subsection{GPU Ray Tracing}
 The exact landscape for future exascale distributed systems is unknown, but it 
 has been suggested that the systems may have a combination of GPUs as well of 
 CPUs to allow algorithms to take advantage of different hardware depending on 
-their needs~\cite{kogge2013exascale}.  Our current ray tracing algorithm is 
-integrated  with Embree, an optimized ray tracing library built for CPU’s.  
-Embree could be swapped out for NVidia’s OptiX~\cite{parker2010optix}, a GPU 
-based ray tracing engine.  Some scenes may show increased performance when ray 
-traced on a GPU over a CPU and would benefit for the library swap.  In addition,
-in the case of multiple viewpoints being rendered for a single static scene, 
-there is the potential to detect and migrate data at runtime to the specific 
-hardware a voxels data-set matches to improve runtime performance.  Exploring 
-this realm of runtime optimizations is left for future work.
-
-\subsection{Reflector material meshes}
-Implementation and evaluation of the use of reflector meshes to reduce
-communication is another area left for future work.  The concept introduced in 
-section~\ref{sec:ca-ray-tracing} is similar to light meshes, introduced in the 
-same section and detailed in section~\ref{sec:distribute-lights}.
-Reflector material meshes could be used to eliminate the communication cost
-associated with reflection, but come at a potentially large memory overhead
-cost.  We will look at the details of creating and using a reflector mesh, then
-evaluate the potential down-sides.
-
-Pseudo code for creating a reflector mesh can be found in 
-figure~\ref{fig:ray_tracing_2} b.  For a given reflective surface the first step 
-would be to create a sample of points across the surface.  For each sampled 
-point, a distribution of rays would be generated.  Each ray would originate from
-the sample point and point in a different direction. The density of the surface
-points and the distributed rays would need to be evaluated to determine optimal
-sample sizes.  
-
-Each of the distributed rays would then be cast from their origin into the
-scene.  This casing could use a algorithm similar to the ray casting algorithm
-presented in section ~\ref{sec:ca-ray-casting}. All distributed rays would be 
-given to every voxel, if the ray intersects an object, material information from 
-the intersected object would be stored, otherwise no information would be set.  
-Once all voxels had computed the intersections, the results would be composed 
-into a single data set we are calling a reflected material mesh.  This mesh 
-would contain all the distribution rays for each sample point and each 
-distribution ray would contain material information from the first object 
-intersected.
-
-The reflected material meshes would be passed to each voxel computation at
-runtime to be used by the ray tracing algorithm.  When a ray intersected a
-reflector, a quick lookup would give the appropriate mesh for the algorithm to
-use.  A nearest neighbor approach could then be used to find the closest sample
-point or points.  The direction of the reflected ray would need to be used to
-determine which ray from the sample points distributed ray set should be used.
-Once the ray is selected, the material information it contains could then be
-used to compute the intersection color on the reflected material.
-
-The direction of the reflected ray greatly affects the object that will be
-reflected on a surface.  This results in the reflector material meshes differing
-significantly from the light meshes.  Light meshes are attached to voxel walls
-and samples with a single direction are sufficient to approximate illumination
-calculations, see section~\ref{sec:trace-voxel}.  Reflector material meshes must
-be sample and attached to every reflector surface.  In addition each point
-requires potentially many rays to be evaluated.  This may significantly increase
-the pre-processing cost as well as the memory overhead.  In a worst case
-scenario a scene may have many reflectors all hidden behind a wall.  The
-computation to compute the meshes would be done, but none of the viewing rays
-would ever use the information, resulting in wasted memory and computation
-space.  Optimizations and viability of this design as well as additional
-communication reducing algorithms designed for handling reflected rays are left
-to future work. 
-
-\subsection{Refracted rays}
-Extending our ray tracer to support refracted rays while keeping communication
-costs low presents an opportunity to exploit another anticipated architecture
-feature of exascale distributed systems.  Hardware failures are anticipated to
-be more common at exascale~\cite{gropp2013programming}.  As a result, 
-runtimes will need to detect failures and be able to recover from them.  One way
-to do this is to periodically send memory information to a file and then use the
-file to recover.  This capability could be leveraged by the application to 
-manually invoke a failure when the system processes refraction.  The voxel 
-computing incorrect data using non-refracted rays would be stopped.  The new 
-trajectories of the refracted rays would be computed and the downstream voxel 
-computations would be restarted with the new ray directions.
-
-
+their needs~\cite{article-kogge}.  Our ray tracing algorithm is integrated 
+with Embree, an optimized ray tracing library built for CPU’s. Embree could be
+swapped out for NVIDIA's OptiX~\cite{proceedings-parker}, a GPU-based ray tracing
+engine.  Some scenes may show increased performance when ray traced on a GPU
+over a CPU and would benefit for the library swap.  In addition, in the case of
+multiple viewpoints being rendered for a single static scene, there is the
+potential to detect and migrate information at runtime to the specific hardware
+a voxel's subset of the scene executes best on to improve runtime performance. 
+Exploring this realm of runtime optimizations is left for future work.
 
 
 

@@ -1,37 +1,158 @@
 
-@article{kogge2013exascale,
-  title={Exascale Computing Trends: Adjusting to the},
-  author={Kogge, Peter and Shalf, John},
-  journal={Computing in Science \& Engineering},
-  volume={15},
+%-------------------------  books ------------------------%
+
+@book{book-shirley,
+  author     = {Shirley, Peter and Marschner, Stephen},
+  title      = {Fundamentals of computer graphics}, 
+  publisher  = {A K Peters/CRC Press}, 
+  year       = {2009},
+  edition    = 3,
+  isbn       = {1568814690} 
+} 
+
+@book{book-chalmers, 
+  author     = {Chalmers, Alan and Davis, Timothy and Reinhard, Erik},
+  title      = {Practical parallel rendering}, 
+  publisher  = {A K Peters/CRC Press}, 
+  year       = 2002,
+  edition    = 1,
+  isbn       = {1568811799}
+} 
+
+@book{book-snir,
+ author      = {Snir, Marc and Otto, Steve and Huss-Lederman, Steven and Walker, David and Dongarra, Jack},
+ title       = {MPI - The Complete Reference},
+ publisher   = {The MIT Press},
+ year        = 1998,
+ volume      = 1,
+ address     = {Cambridge, MA, USA},
+ edition     = 2,
+ isbn        = {0262692155},
+} 
+
+%-------------------------  papers ------------------------%
+
+@article{article-gottlieb,
+  title     = {Exascale Computing},
+  author    = {Gottlieb, Steven and Sterling, Thomas},
+  journal   = {Computing in Science \& Engineering},
+  volume    = {15},
+  number    = {6},
+  pages     = {12--15},
+  year      = {2013},
+  publisher = {AIP Publishing}
+}
+
+@article{article-kogge,
+  title     = {Exascale Computing Trends: Adjusting to the "New Normal" for Computer Architecture},
+  author    = {Kogge, Peter and Shalf, John},
+  journal   = {Computing in Science \& Engineering},
+  volume    = {15},
+  number    = {6},
+  pages     = {16--26},
+  year      = {2013},
+  publisher = {AIP Publishing}
+}
+
+@article{article-gropp,
+  title     = {Programming for exascale computers},
+  author    = {Gropp, William and Snir, Marc},
+  journal   = {Computing in Science \& Engineering},
+  volume    = {15},
+  number    = {6},
+  pages     = {27--35},
+  year      = {2013},
+  publisher = {AIP Publishing}
+}
+
+@article{article-bentley,
+  title     = {Multidimensional binary search trees used for associative searching},
+  author    = {Bentley, Jon Louis},
+  journal   = {Communications of the ACM},
+  volume    = {18},
+  number    = {9},
+  pages     = {509--517},
+  year      = {1975},
+  publisher = {ACM}
+}
+
+
+@article{article-scherson,
+  title    = {Multiprocessing for ray tracing: A hierarchical self-balancing approach},
+  author   = {Scherson, Issac D and Caspary, Elisha},
+  journal  = {The Visual Computer},
+  volume   = {4},
+  number   = {4},
+  pages    = {188--196},
+  year     = {1988},
+  publisher= {Springer}
+}
+
+@article{article-wald,
+  title    = {Embree: A kernel framework for efficient cpu ray tracing},
+  author   = {Wald, Ingo and Woop, Sven and Benthin, Carsten and Johnson, Gregory S and Ernst, Manfred},
+  journal  = {ACM Transactions on Graphics (TOG)},
+  volume   = {33},
+  number   = {4},
+  pages    = {143},
+  year     = {2014},
+  publisher ={ACM}
+}
+
+@article{article-navratil,
+  title={Exploring the Spectrum of Dynamic Scheduling Algorithms for Scalable Distributed-MemoryRay Tracing},
+  author={Navratil, Paul A and Childs, Hank and Fussell, Donald S and Lin, Calvin},
+  journal={IEEE transactions on visualization and computer graphics},
+  volume={20},
   number={6},
-  pages={16--26},
-  year={2013},
-  publisher={AIP Publishing}
+  pages={893--906},
+  year={2014},
+  publisher={IEEE}
 }
 
-@article{gropp2013programming,
-  title={Programming for exascale computers},
-  author={Gropp, William and Snir, Marc},
-  journal={Computing in Science \& Engineering},
-  volume={15},
-  number={6},
-  pages={27--35},
-  year={2013},
-  publisher={AIP Publishing}
+%-------------------------  websites ------------------------%
+
+@manual{san-miguel-image,
+  title  = {Physically Based Rendering: From Theory to Implementation},
+  author = {Matt Pharr and Greg Humphreys Humphreys},
+  url    = {http://www.pbrt.org/scenes.html},
+  year   = {2004 (accessed June 28, 2016)}
 }
 
-@article{budimlicconcurrent,
-  title={The Concurrent Collections Programming Model},
-  author={Budimlic, Zoran and Burke, Michael and Cav{\'e}, Vincent and Knobe, Kathleen and Lowney, Geoff and Palsberg, Jens and Peixotto, David and Sarkar, Vivek and Schlimbach, Frank and Tas{\i}rlar, Sagnak}
+%-------------------------  proceedings ------------------------%
+
+@inproceedings{proceedings-brownlee,
+  title={A Study of Ray Tracing Large-Scale Scientific Data in Parallel Visualization Applications},
+  author={Brownlee, Carson and Patchett, John and Lo, Li-Ta and DeMarle, David and Mitchell, Christopher and Ahrens, James and Hansen, Charles},
+  booktitle={Proceedings of the Eurographics Workshop on Parallel Graphics and Visualization, EGPGV},
+  volume={12},
+  pages={51--60}
 }
 
-@inproceedings{navratil2014dynamic,
+@inproceedings{proceedings-navratil,
   title={Dynamic scheduling for large-scale distributed-memory ray tracing},
   author={Navr{\'a}til, Paul A},
-  booktitle={EuroGraphics Symposium on Parallel Graphics and Visualization},
+  organization={EuroGraphics Symposium on Parallel Graphics and Visualization},
   year={2014}
 }
+
+@inproceedings{proceedings-keller,
+ author = {Keller, Alexander and Karras, Tero and Wald, Ingo and Aila, Timo and Laine, Samuli and Bikker, Jacco and Gribble, Christiaan and Lee, Won-Jong and McCombe, James},
+ title = {Ray Tracing is the Future and Ever Will Be...},
+ booktitle = {ACM SIGGRAPH 2013 Courses},
+ series = {SIGGRAPH '13},
+ year = {2013},
+ isbn = {978-1-4503-2339-0},
+ location = {Anaheim, California},
+ pages = {9:1--9:7},
+ articleno = {9},
+ numpages = {7},
+ url = {http://doi.acm.org/10.1145/2504435.2504444},
+ doi = {10.1145/2504435.2504444},
+ acmid = {2504444},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+} 
 
 @inproceedings{porter2014cnc,
   title={CnC for Ray Tracing},
@@ -42,25 +163,7 @@
   days={18--19}
 }
 
-@book{Snir:1998:MCR:552013,
- author = {Snir, Marc and Otto, Steve and Huss-Lederman, Steven and Walker, David and Dongarra, Jack},
- title = {MPI-The Complete Reference, Volume 1: The MPI Core},
- year = {1998},
- isbn = {0262692155},
- edition = {2nd. (Revised)},
- publisher = {MIT Press},
- address = {Cambridge, MA, USA},
-} 
-
-@misc{ openmp08,
-    author = {{OpenMP Architecture Review Board}},
-    title = {{OpenMP} Application Program Interface Version 3.0},
-    month = may,
-    year = 2008,
-    url = {http://www.openmp.org/mp-documents/spec30.pdf}
-}
-
-@inproceedings{woop2013embree,
+@inproceedings{proceedings-woop,
   title={Embree ray tracing kernels for CPUs and the Xeon Phi architecture},
   author={Woop, Sven and Feng, Louis and Wald, Ingo and Benthin, Carsten},
   booktitle={ACM SIGGRAPH 2013 Talks},
@@ -69,18 +172,7 @@
   organization={ACM}
 }
 
-@article{wald2014embree,
-  title={Embree: A kernel framework for efficient cpu ray tracing},
-  author={Wald, Ingo and Woop, Sven and Benthin, Carsten and Johnson, Gregory S and Ernst, Manfred},
-  journal={ACM Transactions on Graphics (TOG)},
-  volume={33},
-  number={4},
-  pages={143},
-  year={2014},
-  publisher={ACM}
-}
-
-@inproceedings{parker2010optix,
+@inproceedings{proceedings-parker,
   title={Optix: a general purpose ray tracing engine},
   author={Parker, Steven G and Bigler, James and Dietrich, Andreas and Friedrich, Heiko and Hoberock, Jared and Luebke, David and McAllister, David and McGuire, Morgan and Morley, Keith and Robison, Austin and others},
   booktitle={ACM Transactions on Graphics (TOG)},
@@ -91,8 +183,48 @@
   organization={ACM}
 }
 
-@article{franco2012true,
-  title={True Concurrency and Atomicity},
-  author={Franco, Alberto and Baldan, Paolo},
-  year={2012}
+%-------------------------  other ------------------------%
+
+@manual{manual-wavefront,
+  title        = {Programmer's Reference Manual for the Advanced Visualizer: Interim Publication},
+  organization = {Wavefront Technologies},
+  year         = 1991,
+  edition      = 2
 }
+
+@manual{manual-cnc,
+  title        = {The Concurrent Collections Programming Model},
+  author       = {Budimlic, Zoran and Burke, Michael and Cav{\'e}, Vincent and 
+                 Knobe, Kathleen and Lowney, Geoff and Palsberg, Jens and 
+                 Peixotto, David and Sarkar, Vivek and Schlimbach, 
+                 Frank and Tas{\i}rlar, Sagnak},
+  organization = {Rice University, University of California at Los Angeles 
+                  and Intel Corporation},
+  month        = April,
+  year         = 2010                 
+}
+
+@phdthesis{phd-franco,
+  author       = {Franco, Alberto}, 
+  title        = {True Concurrency and Atomicity},
+  school       = {Universit\'a degli Studi di Padova},
+  year         = 2012,
+  month        = October,
+}
+
+@misc{cpts548,
+  author        = {Lewis, Robert R.},
+  title         = {Lecture notes from Advanced Computer Graphics},
+  month         = {January},
+  year          = {2016},
+  publisher={Washington State University}
+}
+
+@misc{openmp08,
+    author = {{OpenMP Architecture Review Board}},
+    title = {{OpenMP} Application Program Interface Version 3.0},
+    month = may,
+    year = 2008,
+    url = {http://www.openmp.org/mp-documents/spec30.pdf}
+}
+
