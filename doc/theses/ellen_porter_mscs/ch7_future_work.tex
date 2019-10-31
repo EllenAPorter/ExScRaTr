@@ -1,0 +1,78 @@
+\section{Future Work}
+\label{sec:future-work}
+
+This thesis presents a base system for task-based ray tracing that emphasizes 
+communication reduction.  Several modifications to the algorithm could be made 
+to improve runtime performance and feature support.  These improvements include
+modifications to support GPU and CPU ray tracing, support for reflected and
+refracted rays and support for soft shadows.
+
+\subsection{Reflected and Refracted Rays}
+As introduced in Chapter~\ref{chpt:design}, extending our ray tracer to support
+reflected and refracted rays while keeping communication costs low presents an
+opportunity to exploit another anticipated architecture feature of exascale
+distributed systems.  Hardware failures are anticipated to be more common at
+exascale~\cite{article-gropp}.  As a result, runtimes will need to
+detect failures and be able to recover from them.  Two ways to do this are to
+periodically send memory information to a file or duplicate the information
+across nodes.  This file or secondary node can then be used to recover when a
+failure is detected. This capability could be leveraged by the application to
+manually invoke a failure when the system detects refraction while tracing a
+voxel.  The node computing incorrect results using non-reflected or
+non-refracted rays would be stopped.  The new trajectories of the rays would be
+computed and the downstream voxel computations would be restarted with the new
+ray directions.
+
+\subsection{Soft Shadows}
+The implemented ray tracing algorithm creates hard lines along the edge of
+shadow.  Techniques have been developed to produce soft shadows for area light
+sources by casting multiple light rays from each intersection point that
+point to different locations along the area light source. The results of these
+are combine to produce a final value representing how ``in shadow'' a particular
+pixel should be.  This creates the illusion of a softer line along the shadows
+edge. The use of the shadow mesh presents an opportunity to evaluate how ``in
+shadow'' a pixel is by using the surrounding vertices in the mesh if some are in
+shadow and some are not.
+
+\subsection{GPU Ray Tracing}
+The exact landscape for future exascale distributed systems is unknown, but it 
+has been suggested that the systems may have a combination of GPUs as well of 
+CPUs to allow algorithms to take advantage of different hardware depending on 
+their needs~\cite{article-kogge}.  Our ray tracing algorithm is integrated 
+with Embree, an optimized ray tracing library built for CPU’s. Embree could be
+swapped out for NVIDIA's OptiX~\cite{proceedings-parker}, a GPU-based ray tracing
+engine.  Some scenes may show increased performance when ray traced on a GPU
+over a CPU and would benefit for the library swap.  In addition, in the case of
+multiple viewpoints being rendered for a single static scene, there is the
+potential to detect and migrate information at runtime to the specific hardware
+a voxel's subset of the scene executes best on to improve runtime performance. 
+Exploring this realm of runtime optimizations is left for future work.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

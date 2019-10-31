@@ -32,4 +32,3 @@ diagrams/%.eps: diagrams/%.dia
 
 diagrams/%.pdf: diagrams/%.eps
 	epstopdf $<
-

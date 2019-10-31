@@ -1,0 +1,157 @@
+\documentclass[MSc,12pt]{wsuthesis}
+
+%\usepackage[hdvipdfm]{graphics}
+\usepackage[table]{xcolor}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{pstricks}
+\usepackage{setspace}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{appendix}
+\usepackage{lscape}
+\usepackage{graphicx}
+\usepackage{times}
+\usepackage{cite} 
+\usepackage{subcaption}
+\usepackage{listings} 
+\usepackage{url}
+\usepackage{changepage}
+\usepackage{multirow}
+
+% import figures
+%\input{figures/figures.tex}
+
+\pdfpxdimen=1in
+\divide\pdfpxdimen by 600
+\setlength{\fboxsep}{0pt}
+\setlength{\fboxrule}{2px}
+\definecolor{wsu-gray}{RGB}{113,113,113}
+\definecolor{wsu-light-gray}{RGB}{215,218,219}
+
+
+\lstnewenvironment{algorithm}[1][] %defines the algorithm listing environment
+{   
+    \lstset{ %this is the stype
+        frame=tB,
+        numbers=left, 
+        showlines=true,
+        numberstyle=\tiny,
+        basicstyle=\scriptsize, 
+        keywordstyle=\color{black}\bfseries,
+        keywords={,input, output, return, datatype, function, in, if, else, 
+                   foreach, while, begin, end, for, all, do, out, all, then, is,
+                   not, each, }
+        numbers=left,
+        xleftmargin=.04\textwidth,
+        #1 
+    }
+}{}
+
+\lstnewenvironment{cnc}[1][] %defines the algorithm listing environment
+{   
+    \lstset{ %this is the stype
+        frame=tB,
+        numbers=left, 
+        showlines=true,
+        numberstyle=\tiny,
+        basicstyle=\scriptsize, 
+        keywordstyle=\color{black}\bfseries,
+        keywords={, \$context, \$range, \$initialize, \$finalize, (, ),
+        [, ], )), } numbers=left,
+        xleftmargin=.04\textwidth,
+        #1 
+    }
+}{}
+
+%\newcommand\fnurl[2]{%
+%  \href{#2}{#1}\footnote{\url{#2}}%
+%}
+
+\begin{document}
+
+\title{Communication Avoiding Ray Tracing \\ for Exascale Computing}
+
+\author{Ellen Alice Porter}
+
+\submitdate{July 2016}
+
+\centerhdrstrue
+\strhdrstrue
+
+\dept{School of Electrical Engineering and Computer Science}
+
+\chair{Robert R. Lewis}
+
+\acknowledgment{
+  The completion of this thesis would not have been possible without the help of
+  many people.  I would like to express my sincerest gratitude to my advisor,
+  Dr. Robert R. Lewis for his guidance and patience over the years.  I would
+  also like to acknowledge my thesis committee including Dr. Wayne O.
+  Cochran and Dr. Carl H. Hauser for their commitment towards my education. The
+  CnC community was essential to the completion of this research, especially
+  Kath Knobe and Nick Vrvilo, thank you both.  I must also recognize my
+  employer, Battelle, my managers and my colleagues for their support and
+  encouragement.  Last but not least, I would like to thank my family,
+  especially Mathieu, for their unconditional faith, inspiration and love.
+}
+
+\abstract{
+  Exascale computers, defined as being capable of performing at least
+  one exaFLOP ($10^{18}$ floating point operations per second) are
+  anticipated to emerge in the next several years. Reaching this scale
+  of computation will require hardware and software changes for
+  high-performance computing (HPC). Applications will need to adapt as
+  the architecture of supercomputers change. Some studies suggest
+  \emph{communication avoiding} algorithms might be the most performant
+  design for future systems. This has created an interest in the
+  development of scalable visualization algorithms and techniques.
+
+  This thesis explores the impact exascale hardware will have on
+  programming models and application design. We look at one
+  specific programming model, Concurrent Collections (CnC), and explore how we
+  can use it coupled with Intel's ray tracing engine, Embree, to build a
+  scalable ray tracing system with an emphasis on communication avoidance and
+  extension for exascale. %
+}
+
+\dedication{
+  \emph{For my mom and dad.}
+}
+
+\preface
+
+\chapter{Introduction}
+\input{ch1_introduction} % subsections: introduction, exascale, ray tracing
+  
+\chapter{Previous Work} % or literature review/background?
+\input{ch2_previous_work} % subsections: distributed ray tracing, task-based
+                          % programming models, cnc model, petri net
+
+\chapter{Design}
+\input{ch3_design} 
+
+\chapter{Implementation}
+\input{ch4_implementation}
+  
+\chapter{Evaluation}
+\input{ch5_evaluation}
+
+\chapter{Conclusion and Future Work}
+\label{future-work-and-conclusions}
+\input{ch6_conclusions}
+\input{ch7_future_work}
+
+
+\newpage
+\singlespacing
+\bibliographystyle{plain}
+\bibliography{bibliography}
+
+\appendix
+% If you really *must* include source code.
+\chapter{Source Code}
+\input{appendix.tex}
+
+\end{document}

@@ -87,7 +87,7 @@
 %\textwidth      6.5in      % 8.5x11 paper.
 
 \hoffset        0.0in      % These values will give
-\oddsidemargin  0.25in      % 1.25" margins on both
+\oddsidemargin  0.25in     % 1.25" margins on both
 \evensidemargin 0.0in      % edges of the page with
 \textwidth      6.0in      % 8.5x11 paper.
 
@@ -289,31 +289,31 @@
 % Signature page
 \newcommand{\signaturepage}{%
   \vspace*{\stretch{1}}
-
   \doublespacing
-  \noindent To the Faculty of Washington State University:
 
-  % For some reason, going directly from \doublespacing to \onehalfspacing
-  % gets rid of the extra double space
-  \singlespacing
-  \onehalfspacing
+  \noindent To the Faculty of Washington State University:
 
   \indent The members of the Committee appointed to examine the
   \expandafter{\@thesistype} of \uppercase\expandafter{\@author} find it
   satisfactory and recommend that it be accepted.
 
-  \singlespacing
-
   \begin{flushright}
   \begin{minipage}{3in}
-    \begin{center}
+    
+    \vspace{.6in}
+    \hrule
+    \vspace{.1in}
+    \hspace{.5in}Robert R. Lewis, Ph.D., Chair
 
-    \vspace{.5in}
-    \hbox to 2.95in{\hfil\shortstack{\vrule width 2.9in height 0.4pt\\Thesis Committee Chair's Name (fix in wsuthesis.cls), Chair}}
-    \vspace{.5in}
-    \hbox to 2.95in{\hfil\shortstack{\vrule width 2.9in height 0.4pt\\Committee Member No. 1}}
-    \vspace{.5in}
-    \hbox to 2.95in{\hfil\shortstack{\vrule width 2.9in height 0.4pt\\Committee Member No. 2 (repeat as needed)}}
+    \vspace{.6in}
+    \hrule
+    \vspace{.1in}
+    \hspace{.5in}Wayne O. Cochran, Ph.D.
+
+    \vspace{.6in}
+    \hrule
+    \vspace{.1in}
+    \hspace{.5in}Carl H. Hauser, Ph.D.
 
     % Counter for number of additional signature lines.
     % Cap the number at 10, since more than this will break the formatting.
@@ -333,7 +333,6 @@
     %  \hbox to 2.95in{\hfil\shortstack{\vrule width 2.9in height 0.4pt}}
     %  \addtocounter{sigs}{-1}
     %}
-    \end{center}
   \end{minipage}
   \end{flushright}
 

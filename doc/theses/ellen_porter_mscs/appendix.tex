@@ -1,0 +1,69 @@
+\begin{figure}[!htb]
+\begin{center}
+    
+\begin{cnc}
+/******************************************************************************
+// * CnC Specification - Ray Tracer
+// * Author: Ellen Porter (ellen.porter@wsu.edu)
+// *         Washington State University
+//****************************************************************************/
+
+/******************************************************************************
+// * Graph parameters */
+
+$context {
+  int num_voxels;
+  int shadow_mesh_resolution;
+  int num_luminaires;
+};
+
+/******************************************************************************
+//* Item collection declarations */
+
+[ struct luminaire    *luminaire    : l    ];
+[ struct scene        *scene        : ()   ];
+[ struct camera       *camera       : ()   ];
+[ struct voxel        *voxel        :    v ];
+[ struct shadow_mesh  *shadow_mesh  : l, v ];
+[ struct traced_image *traced_image : l, v ];
+[ struct image        *image        : ()   ];
+
+/******************************************************************************
+//* Step collection declarations */
+
+( decompose_scene    : () )
+<- [ scene           : () ]
+-> [ voxel           : $range(0, #num_voxels) ];
+( trace_light_rays   : l, v )
+<- [ luminaire       : l ],
+   [ voxel           : v ]
+-> [ shadow_mesh     : l, v ];
+( trace_viewing_rays : v )
+<- [ camera          : () ],
+   [ luminaire       : $range(0, #num_luminaires) ],
+   [ voxel           : v]
+-> [ traced_image    : $range(0, #num_luminaires), v ];
+(composite_image     : () )
+<- [ traced_image    : $range(0, #num_luminaires), $range(0, #num_voxels) ],
+   [ shadow_mesh     : $range(0, #num_luminaires), $range(0, #num_voxels) ]
+-> [ image           : () ];
+
+/******************************************************************************
+//* Input output relationships from environment */
+
+( $initialize          : () )
+-> [scene              : () ],
+   [camera             : () ],
+   [luminaire          : $range(0, #num_luminaires)],
+   (decompose_scene    : () ),
+   (trace_light_rays   : $range(0, #num_luminaires), $range(0, #num_voxels)),
+   (trace_viewing_rays : $range(0, #num_voxels)),
+   (composite_image    : () );
+( $finalize            : () )
+<- [image              : () ];
+\end{cnc} 
+  \end{center}
+  \caption{Textual CnC Graph}
+  \label{fig:cnc-graph-text}
+\end{figure}
+
